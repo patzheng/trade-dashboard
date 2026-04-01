@@ -30,6 +30,9 @@ jobs:
       - name: Debug key fingerprint
         run: ssh-keygen -lf ~/.ssh/id_ed25519
 
+      - name: Debug key header
+        run: head -n 1 ~/.ssh/id_ed25519
+
       - name: Debug target
         run: |
           echo "host=${{ vars.DEPLOY_HOST }}"
