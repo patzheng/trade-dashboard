@@ -1,6 +1,6 @@
 # Trade Dashboard
 
-一个用于展示交易数据的可部署 Web 项目骨架。
+一个用于展示多市场交易数据的可部署 Web 项目骨架。
 
 ## 技术栈
 
@@ -10,6 +10,21 @@
 - Cache/Queue: Redis
 - Reverse Proxy: Nginx
 - Deployment: Docker Compose
+
+当前首页按这几类市场统一展示：
+
+- BTC / 数字货币
+- A股
+- 港股
+- 美股
+- 商品期货
+
+首页里还会单独显示：
+
+- 风险快照
+- 市场暴露
+- 最近成交
+- 重点标的清单
 
 ## 目录结构
 
@@ -48,6 +63,7 @@ docker compose up --build -d
 ```
 
 5. 域名解析到服务器公网 IP 后，访问 80 端口即可。
+6. 首页会自动聚合所有市场的总览、重点标的和最近成交。
 
 ## 一键更新
 
@@ -70,36 +86,6 @@ git push
 - `git pull --rebase`
 - `docker compose build`
 - `docker compose up -d --remove-orphans`
-
-## GitHub Actions 自动部署
-
-你也可以让 GitHub 在 `main` 分支有新提交时自动更新服务器。
-
-这套仓库现在使用的是 `self-hosted` runner，也就是 Runner 装在你的服务器上，GitHub Actions 触发后直接在服务器本机执行 `./scripts/deploy.sh`。
-
-### 服务器端要求
-
-- 服务器已经完成 `git clone`
-- `deploy.sh` 有执行权限
-- `docker` 和 `docker compose` 已安装
-- 服务器上已经注册了 GitHub self-hosted runner
-
-### 安装 Runner
-
-在仓库页面打开：
-
-- `Settings`
-- `Actions`
-- `Runners`
-- `New self-hosted runner`
-
-按页面提示选择 `Linux` 和 `x64`，然后在服务器上以 `deploy` 用户运行 GitHub 给出的安装命令。
-
-### 工作方式
-
-- 代码推送到 `main`
-- GitHub Actions 调度服务器上的 self-hosted runner
-- Runner 在服务器本机执行 `./scripts/deploy.sh`
 
 ## 后续建议
 

@@ -12,21 +12,49 @@ class Metric(BaseModel):
     hint: str
 
 
-class SymbolHighlight(BaseModel):
-    symbol: str
-    value: str
-    change: str
-
-
-class EquityPoint(BaseModel):
+class MarketSummary(BaseModel):
+    market: str
     label: str
-    value: float
+    currency: str
+    trade_count: int
+    active_symbols: int
+    net_pnl: float
+    turnover: float
+    change_pct: float
+    last_sync: datetime
 
 
-class TradeOut(BaseModel):
+class WatchlistItem(BaseModel):
+    symbol: str
+    market: str
+    label: str
+    venue: str
+    last_price: float
+    change_pct: float
+    position_hint: str
+    note: str
+
+
+class RiskMetric(BaseModel):
+    label: str
+    value: str
+    hint: str
+
+
+class ExposureRow(BaseModel):
+    label: str
+    market: str
+    gross_notional: float
+    net_pnl: float
+    share_pct: float
+    risk: str
+
+
+class TradeView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    market: str
     symbol: str
     side: str
     quantity: Decimal
@@ -37,8 +65,12 @@ class TradeOut(BaseModel):
     executed_at: datetime
 
 
-class OverviewResponse(BaseModel):
+class DashboardResponse(BaseModel):
     updated_at: datetime
     metrics: list[Metric]
-    top_symbols: list[SymbolHighlight]
-    equity_curve: list[EquityPoint]
+    risk_metrics: list[RiskMetric]
+    exposure: list[ExposureRow]
+    markets: list[MarketSummary]
+    watchlist: list[WatchlistItem]
+    recent_trades: list[TradeView]
+    focus_market: str

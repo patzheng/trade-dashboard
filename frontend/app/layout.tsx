@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Trade Dashboard",
-  description: "A trading data visualization dashboard.",
+  title: "Multi-Market Console",
+  description: "A personal multi-market trading dashboard for BTC, A-shares, HK, US stocks, and futures.",
 };
 
 export default function RootLayout({

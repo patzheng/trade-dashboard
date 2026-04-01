@@ -21,15 +21,19 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 if [ ! -f .env ]; then
-  echo ".env not found in the runner workspace." >&2
+  echo ".env not found. Copy .env.example to .env and fill in secrets first." >&2
   exit 1
 fi
 
-echo "[1/3] Building images..."
+echo "[1/4] Pulling latest code..."
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+git pull --rebase origin "$CURRENT_BRANCH"
+
+echo "[2/4] Building images..."
 docker compose build
 
-echo "[2/3] Recreating services..."
+echo "[3/4] Recreating services..."
 docker compose up -d --remove-orphans
 
-echo "[3/3] Current status:"
+echo "[4/4] Current status:"
 docker compose ps
