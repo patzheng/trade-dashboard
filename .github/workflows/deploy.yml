@@ -27,6 +27,9 @@ jobs:
           ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+      - name: Debug key fingerprint
+        run: ssh-keygen -lf ~/.ssh/id_ed25519
+
       - name: Trigger remote deploy
         run: |
           ssh -i ~/.ssh/id_ed25519 \
