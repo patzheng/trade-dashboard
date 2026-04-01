@@ -77,10 +77,13 @@ git push
 
 ### 需要配置的 Secrets
 
+- `DEPLOY_SSH_KEY`: GitHub Actions 用来登录服务器的私钥内容
+
+### 需要配置的 Variables
+
 - `DEPLOY_HOST`: 服务器 IP 或域名
 - `DEPLOY_USER`: 服务器上的部署用户，例如 `deploy`
 - `DEPLOY_PATH`: 仓库在服务器上的绝对路径，例如 `/home/deploy/trade-dashboard`
-- `DEPLOY_SSH_KEY`: GitHub Actions 用来登录服务器的私钥内容
 - `DEPLOY_PORT`: SSH 端口，默认 `22`
 
 ### 生成部署密钥

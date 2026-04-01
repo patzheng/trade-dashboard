@@ -24,7 +24,7 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Debug key fingerprint
@@ -32,16 +32,16 @@ jobs:
 
       - name: Debug target
         run: |
-          echo "host=${{ secrets.DEPLOY_HOST }}"
-          echo "user=${{ secrets.DEPLOY_USER }}"
-          echo "path=${{ secrets.DEPLOY_PATH }}"
-          echo "port=${{ secrets.DEPLOY_PORT || 22 }}"
+          echo "host=${{ vars.DEPLOY_HOST }}"
+          echo "user=${{ vars.DEPLOY_USER }}"
+          echo "path=${{ vars.DEPLOY_PATH }}"
+          echo "port=${{ vars.DEPLOY_PORT }}"
 
       - name: Trigger remote deploy
         run: |
           ssh -i ~/.ssh/id_ed25519 \
-            -p "${{ secrets.DEPLOY_PORT || 22 }}" \
+            -p "${{ vars.DEPLOY_PORT || 22 }}" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd '${{ secrets.DEPLOY_PATH }}' && ./scripts/deploy.sh"
+            "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
+            "cd '${{ vars.DEPLOY_PATH }}' && ./scripts/deploy.sh"
