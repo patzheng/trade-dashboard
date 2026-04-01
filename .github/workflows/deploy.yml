@@ -30,6 +30,13 @@ jobs:
       - name: Debug key fingerprint
         run: ssh-keygen -lf ~/.ssh/id_ed25519
 
+      - name: Debug target
+        run: |
+          echo "host=${{ secrets.DEPLOY_HOST }}"
+          echo "user=${{ secrets.DEPLOY_USER }}"
+          echo "path=${{ secrets.DEPLOY_PATH }}"
+          echo "port=${{ secrets.DEPLOY_PORT || 22 }}"
+
       - name: Trigger remote deploy
         run: |
           ssh -i ~/.ssh/id_ed25519 \
