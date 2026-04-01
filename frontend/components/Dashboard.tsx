@@ -379,7 +379,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className={styles.tradeMeta}>
-                    <b className={trade.pnl >= 0 ? styles.good : styles.bad}>{formatMoney(trade.pnl)}</b>
+                    <b className={Number(trade.pnl) >= 0 ? styles.good : styles.bad}>{formatMoney(trade.pnl)}</b>
                     <small>
                       {trade.side} · {formatQuantity(trade.quantity)} @ {Number(trade.price).toLocaleString("en-US", {
                         minimumFractionDigits: 2,
