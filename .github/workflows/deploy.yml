@@ -27,24 +27,11 @@ jobs:
           ssh-keyscan -H "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Debug key fingerprint
-        run: ssh-keygen -lf ~/.ssh/id_ed25519
-
-      - name: Debug key header
-        run: head -n 1 ~/.ssh/id_ed25519
-
-      - name: Debug target
+      - name: Test SSH Login
         run: |
-          echo "host=${{ vars.DEPLOY_HOST }}"
-          echo "user=${{ vars.DEPLOY_USER }}"
-          echo "path=${{ vars.DEPLOY_PATH }}"
-          echo "port=${{ vars.DEPLOY_PORT }}"
-
-      - name: Trigger remote deploy
-        run: |
-          ssh -i ~/.ssh/id_ed25519 \
+          ssh -vvv -i ~/.ssh/id_ed25519 \
             -p "${{ vars.DEPLOY_PORT || 22 }}" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
-            "cd '${{ vars.DEPLOY_PATH }}' && ./scripts/deploy.sh"
+            "whoami"
