@@ -75,45 +75,31 @@ git push
 
 你也可以让 GitHub 在 `main` 分支有新提交时自动更新服务器。
 
-### 需要配置的 Secrets
-
-- `DEPLOY_SSH_KEY`: GitHub Actions 用来登录服务器的私钥内容
-
-### 需要配置的 Variables
-
-- `DEPLOY_HOST`: 服务器 IP 或域名
-- `DEPLOY_USER`: 服务器上的部署用户，例如 `deploy`
-- `DEPLOY_PATH`: 仓库在服务器上的绝对路径，例如 `/home/deploy/trade-dashboard`
-- `DEPLOY_PORT`: SSH 端口，默认 `22`
-
-### 生成部署密钥
-
-在本地机器生成一对专门给 GitHub Actions 用的 SSH key：
-
-```bash
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f ./github-actions-deploy -N ""
-```
-
-把生成出来的公钥 `github-actions-deploy.pub` 追加到服务器上的：
-
-```bash
-/home/deploy/.ssh/authorized_keys
-```
-
-然后把私钥文件 `github-actions-deploy` 的内容复制到 GitHub 仓库的 `DEPLOY_SSH_KEY` Secret。
-
-### 工作方式
-
-- 代码推送到 `main`
-- GitHub Actions 通过 SSH 登录服务器
-- 在服务器上执行 `./scripts/deploy.sh`
+这套仓库现在使用的是 `self-hosted` runner，也就是 Runner 装在你的服务器上，GitHub Actions 触发后直接在服务器本机执行 `./scripts/deploy.sh`。
 
 ### 服务器端要求
 
 - 服务器已经完成 `git clone`
 - `deploy.sh` 有执行权限
 - `docker` 和 `docker compose` 已安装
-- `deploy` 用户可以正常拉取仓库并启动容器
+- 服务器上已经注册了 GitHub self-hosted runner
+
+### 安装 Runner
+
+在仓库页面打开：
+
+- `Settings`
+- `Actions`
+- `Runners`
+- `New self-hosted runner`
+
+按页面提示选择 `Linux` 和 `x64`，然后在服务器上以 `deploy` 用户运行 GitHub 给出的安装命令。
+
+### 工作方式
+
+- 代码推送到 `main`
+- GitHub Actions 调度服务器上的 self-hosted runner
+- Runner 在服务器本机执行 `./scripts/deploy.sh`
 
 ## 后续建议
 
