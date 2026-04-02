@@ -1,16 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import styles from "./BtcDesk.module.css";
-
-const RANGE_OPTIONS = [
-  { label: "1M", points: 30 },
-  { label: "3M", points: 90 },
-  { label: "6M", points: 180 },
-  { label: "1Y", points: 365 },
-  { label: "ALL", points: Infinity },
-] as const;
 
 type ChartPoint = {
   timestamp: string;
@@ -200,57 +192,8 @@ function formatDelta(value: number | null | undefined) {
   return `${prefix}${formatNumber(value, 1)}%`;
 }
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function scaleChart(series: ChartPoint[], width: number, height: number) {
-  const padding = 20;
-  const values = series.flatMap((point) => [point.price, point.ma7, point.ma50, point.ma200, point.ma1400]).filter(Number.isFinite);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const usableWidth = width - padding * 2;
-  const usableHeight = height - padding * 2;
-
-  return series.map((point, index) => {
-    const x = padding + (series.length === 1 ? usableWidth / 2 : (usableWidth * index) / (series.length - 1));
-    const priceY = padding + usableHeight - ((point.price - min) / span) * usableHeight;
-    const ma7Y = padding + usableHeight - ((point.ma7 - min) / span) * usableHeight;
-    const ma50Y = padding + usableHeight - ((point.ma50 - min) / span) * usableHeight;
-    const ma200Y = padding + usableHeight - ((point.ma200 - min) / span) * usableHeight;
-    const ma1400Y = padding + usableHeight - ((point.ma1400 - min) / span) * usableHeight;
-    return { x, priceY, ma7Y, ma50Y, ma200Y, ma1400Y };
-  });
-}
-
-function pathFrom(points: { x: number; y: number }[]) {
-  if (!points.length) return "";
-  return points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
-    .join(" ");
-}
-
-function areaFrom(points: { x: number; y: number }[], height: number) {
-  if (!points.length) return "";
-  const padding = 20;
-  const lastPoint = points[points.length - 1];
-  return [
-    `M ${points[0].x.toFixed(1)} ${height - padding}`,
-    `L ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`,
-    ...points.slice(1).map((point) => `L ${point.x.toFixed(1)} ${point.y.toFixed(1)}`),
-    `L ${lastPoint.x.toFixed(1)} ${height - padding}`,
-    "Z",
-  ].join(" ");
-}
 
 export default function BtcDesk() {
-  const [chartRange, setChartRange] = useState<(typeof RANGE_OPTIONS)[number]["label"]>("3M");
   const [state, setState] = useState<{
     data: BtcApiResponse | null;
     loading: boolean;
@@ -295,21 +238,6 @@ export default function BtcDesk() {
   }, []);
 
   const data = state.data;
-  const allSeries = data?.chart.series ?? [];
-  const visibleSeries = useMemo(() => {
-    const selected = RANGE_OPTIONS.find((option) => option.label === chartRange) ?? RANGE_OPTIONS[1];
-    if (!Number.isFinite(selected.points) || allSeries.length <= selected.points) {
-      return allSeries;
-    }
-    return allSeries.slice(-selected.points);
-  }, [allSeries, chartRange]);
-  const layout = useMemo(() => scaleChart(visibleSeries, 1200, 440), [visibleSeries]);
-  const pricePath = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.priceY }))), [layout]);
-  const areaPath = useMemo(() => areaFrom(layout.map((point) => ({ x: point.x, y: point.priceY })), 440), [layout]);
-  const ma7Path = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.ma7Y }))), [layout]);
-  const ma50Path = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.ma50Y }))), [layout]);
-  const ma200Path = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.ma200Y }))), [layout]);
-  const ma1400Path = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.ma1400Y }))), [layout]);
 
   const blockchain: BtcBlockchainStats = data?.raw.blockchain ?? {};
   const mempool: MempoolStats = data?.raw.mempool ?? {};
@@ -318,9 +246,6 @@ export default function BtcDesk() {
   const sources = data?.sources ?? [];
   const bitview: BitViewStats = data?.raw.bitview ?? {};
 
-  const latestPoint = visibleSeries[visibleSeries.length - 1];
-  const earliestPoint = visibleSeries[0];
-  const priceRange = data && data.chart.max != null && data.chart.min != null ? data.chart.max - data.chart.min : null;
   const mempoolFast = mempool.fastestFee ?? null;
   const mempoolHalf = mempool.halfHourFee ?? null;
   const mempoolHour = mempool.hourFee ?? null;
@@ -337,7 +262,6 @@ export default function BtcDesk() {
   const nupl = typeof bitview.nupl === "number" ? bitview.nupl : null;
   const sopr = typeof bitview.sopr === "number" ? bitview.sopr : null;
   const realizedCap = typeof bitview.realized_cap === "number" ? bitview.realized_cap : null;
-  const currentRangeLabel = RANGE_OPTIONS.find((option) => option.label === chartRange)?.label ?? "3M";
 
   const chainRows = [
     {
@@ -423,13 +347,13 @@ export default function BtcDesk() {
     },
     {
       label: "MA stack",
-      value: latestPoint ? `${formatPrice(latestPoint.price)} / ${formatPrice(latestPoint.ma7)} / ${formatPrice(latestPoint.ma50)}` : "—",
+      value: data?.hero.regime ?? "—",
       hint: "Spot / short / medium trend",
     },
     {
-      label: "Swing range",
-      value: data && data.chart.min != null && data.chart.max != null ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
-      hint: "Visible chart envelope",
+      label: "Price",
+      value: formatOptionalPrice(data?.hero.price),
+      hint: "Top-line BTC state",
     },
     {
       label: "Bias",
@@ -465,29 +389,6 @@ export default function BtcDesk() {
     ? Math.max(0, Math.min(100, ((cycleSignal.score + 4) / 8) * 100))
     : 50;
 
-  const priceMetrics: InsightMetric[] = [
-    {
-      label: "Current price",
-      value: formatOptionalPrice(data?.hero.price),
-      hint: "Live BTC print",
-    },
-    {
-      label: "24h change",
-      value: formatOptionalChange(data?.hero.change_24h),
-      hint: "Session momentum",
-    },
-    {
-      label: "Market cap",
-      value: formatOptionalCompact(data?.hero.market_cap),
-      hint: "Implied network size",
-    },
-    {
-      label: "200WMA ratio",
-      value: data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—",
-      hint: "Cycle location",
-    },
-  ];
-
   const onChainMetrics = [
     chainRows[0],
     chainRows[4],
@@ -517,8 +418,8 @@ export default function BtcDesk() {
       <header className={styles.header}>
         <div className={styles.headerText}>
           <div className={styles.kicker}>BTC live desk</div>
-          <h1>BTC 四区工作台</h1>
-          <p>只看四个核心区域：价格、链上、资金、周期。没有数据就留空，不用兜底假值。</p>
+          <h1>BTC 三区工作台</h1>
+          <p>只看链上、资金、周期。价格只作为顶栏状态，不再占一个区块。</p>
         </div>
 
         <div className={styles.headerMeta}>
@@ -527,22 +428,16 @@ export default function BtcDesk() {
             <strong>{state.refreshedAt || "—"}</strong>
           </div>
           <div className={styles.metaTile}>
+            <span>Live BTC</span>
+            <strong className={data?.hero.change_24h != null ? (data.hero.change_24h >= 0 ? styles.good : styles.bad) : ""}>
+              {formatOptionalPrice(data?.hero.price)} · {formatOptionalChange(data?.hero.change_24h)}
+            </strong>
+          </div>
+          <div className={styles.metaTile}>
             <span>Cycle</span>
             <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
               {cycleSignal?.label ?? "—"}
             </strong>
-          </div>
-          <div className={styles.rangeTabs} role="tablist" aria-label="Chart range">
-            {RANGE_OPTIONS.map((option) => (
-              <button
-                key={option.label}
-                type="button"
-                className={`${styles.rangeTab} ${chartRange === option.label ? styles.rangeTabActive : ""}`}
-                onClick={() => setChartRange(option.label)}
-              >
-                {option.label}
-              </button>
-            ))}
           </div>
           <button className={styles.refreshButton} onClick={() => void loadData()} disabled={state.loading}>
             {state.loading ? "Refreshing..." : "Refresh"}
@@ -553,72 +448,6 @@ export default function BtcDesk() {
       {state.error ? <div className={styles.errorBanner}>{state.error}</div> : null}
 
       <section className={styles.workspace}>
-        <article className={styles.workspaceSection}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <span className={styles.panelTag}>Price</span>
-              <h3>价格</h3>
-              <p>主图只保留价格和均线，先看结构再看细节。</p>
-            </div>
-            <div className={styles.sectionStatus}>
-              <strong>{formatOptionalPrice(data?.hero.price)}</strong>
-              <span className={data?.hero.change_24h != null ? (data.hero.change_24h >= 0 ? styles.good : styles.bad) : ""}>
-                {formatOptionalChange(data?.hero.change_24h)}
-              </span>
-            </div>
-          </div>
-          <div className={styles.chartCard}>
-            <div className={styles.chartHeader}>
-              <div>
-                <span>Real-time BTC curve</span>
-                <strong>{latestPoint ? `${formatPrice(latestPoint.price)} / ${formatTime(latestPoint.timestamp)}` : "Loading chart..."}</strong>
-              </div>
-              <div className={styles.chartLegend}>
-                <span><i className={styles.legendPrice} /> Price</span>
-                <span><i className={styles.legendMa7} /> MA7</span>
-                <span><i className={styles.legendMa50} /> MA50</span>
-                <span><i className={styles.legendMa200} /> MA200</span>
-                <span><i className={styles.legendMa1400} /> MA200W</span>
-              </div>
-            </div>
-            <div className={styles.chartWrap}>
-              {pricePath ? (
-                <svg viewBox="0 0 1200 440" role="img" aria-label="BTC price chart">
-                  <defs>
-                    <linearGradient id="btcArea" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(89, 213, 255, 0.28)" />
-                      <stop offset="100%" stopColor="rgba(89, 213, 255, 0.02)" />
-                    </linearGradient>
-                    <linearGradient id="btcPriceStroke" x1="0" x2="1" y1="0" y2="0">
-                      <stop offset="0%" stopColor="#67dcff" />
-                      <stop offset="100%" stopColor="#4fe19d" />
-                    </linearGradient>
-                  </defs>
-                  <path d={areaPath} fill="url(#btcArea)" />
-                  <path d={ma1400Path} className={styles.line200w} fill="none" />
-                  <path d={ma200Path} className={styles.line200d} fill="none" />
-                  <path d={ma50Path} className={styles.line50d} fill="none" />
-                  <path d={ma7Path} className={styles.line7d} fill="none" />
-                  <path d={pricePath} stroke="url(#btcPriceStroke)" className={styles.linePrice} fill="none" />
-                </svg>
-              ) : (
-                <div className={styles.emptyState}>{state.loading ? "Loading live BTC data..." : "No live BTC data."}</div>
-              )}
-            </div>
-          </div>
-          <div className={styles.sectionGrid}>
-            {priceMetrics.map((item) => (
-              <article key={item.label} className={styles.metricCard}>
-                <span>{item.label}</span>
-                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
-                  {item.value}
-                </strong>
-                <em>{item.hint}</em>
-              </article>
-            ))}
-          </div>
-        </article>
-
         <article className={styles.workspaceSection}>
           <div className={styles.sectionHeader}>
             <div>
