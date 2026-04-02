@@ -8,6 +8,7 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
+ENV NEXT_IGNORE_INCORRECT_LOCKFILE=1
 RUN npm run build
 
 EXPOSE 3000

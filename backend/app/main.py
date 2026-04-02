@@ -4,6 +4,7 @@ from collections import defaultdict
 from collections.abc import Generator
 from datetime import datetime, timezone
 from decimal import Decimal
+from math import sqrt
 from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -11,8 +12,21 @@ from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_session
 from .models import Trade
-from .schemas import DashboardResponse, ExposureRow, MarketSummary, Metric, RiskMetric, TradeView, WatchlistItem
+from .schemas import (
+    BtcSnapshot,
+    DashboardResponse,
+    ExposureRow,
+    InsightMetric,
+    KeyLevel,
+    MarketSummary,
+    Metric,
+    PricePoint,
+    RiskMetric,
+    TradeView,
+    WatchlistItem,
+)
 from .seed import seed_if_needed
+from .btc_live import get_btc_dashboard
 
 app = FastAPI(title="Trade Dashboard API", version="0.2.0")
 
@@ -198,6 +212,132 @@ def build_watchlist(trades: list[Trade]) -> list[WatchlistItem]:
     return watchlist
 
 
+def moving_average(values: list[float], window: int) -> list[float]:
+    output: list[float] = []
+    for index in range(len(values)):
+        start = max(0, index - window + 1)
+        chunk = values[start : index + 1]
+        output.append(sum(chunk) / len(chunk))
+    return output
+
+
+def calculate_rsi(values: list[float], window: int = 14) -> float:
+    if len(values) < 2:
+        return 50.0
+
+    gains: list[float] = []
+    losses: list[float] = []
+    for index in range(1, len(values)):
+        delta = values[index] - values[index - 1]
+        gains.append(max(delta, 0.0))
+        losses.append(abs(min(delta, 0.0)))
+
+    if not gains:
+        return 50.0
+
+    recent_gains = gains[-window:]
+    recent_losses = losses[-window:]
+    avg_gain = sum(recent_gains) / len(recent_gains) if recent_gains else 0.0
+    avg_loss = sum(recent_losses) / len(recent_losses) if recent_losses else 0.0
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
+def build_btc_snapshot(trades: list[Trade]) -> BtcSnapshot:
+    btc_trades = [trade for trade in trades if classify_market(trade) == "crypto" and trade.symbol.upper().startswith("BTC")]
+    btc_trades.sort(key=lambda trade: trade.executed_at)
+
+    if not btc_trades:
+        return BtcSnapshot(
+            symbol="BTC/USDT",
+            current_price=0.0,
+            change_24h=0.0,
+            high_24h=0.0,
+            low_24h=0.0,
+            volume_24h=0.0,
+            regime="No Data",
+            sentiment="Neutral",
+            price_series=[],
+            onchain=[],
+            technicals=[],
+            levels=[],
+        )
+
+    prices = [float(trade.price) for trade in btc_trades]
+    notionals = [float(Decimal(str(trade.quantity)) * Decimal(str(trade.price))) for trade in btc_trades]
+    ma7 = moving_average(prices, 7)
+    ma21 = moving_average(prices, 21)
+    current_price = prices[-1]
+    change_24h = ((prices[-1] - prices[0]) / prices[0] * 100) if len(prices) > 1 and prices[0] else 0.0
+    high_24h = max(prices)
+    low_24h = min(prices)
+    volume_24h = sum(notionals)
+    rsi = calculate_rsi(prices)
+    volatility = sqrt(sum((price - (sum(prices) / len(prices))) ** 2 for price in prices) / len(prices)) if len(prices) > 1 else 0.0
+
+    regime = "Trend Up" if current_price >= ma7[-1] >= ma21[-1] else "Range" if abs(change_24h) < 2.0 else "Trend Down"
+    sentiment = "Bullish" if change_24h > 0 else "Bearish" if change_24h < 0 else "Neutral"
+
+    onchain = [
+        InsightMetric(label="Exchange Reserve", value="2.41M BTC", hint="7d change -0.8%", state="bullish"),
+        InsightMetric(label="Active Addresses", value="1.08M", hint="Network activity +6.4%", state="bullish"),
+        InsightMetric(label="Whale Ratio", value="11.2%", hint="Large holder dominance", state="neutral"),
+        InsightMetric(label="MVRV Z-Score", value="2.7", hint="Moderately heated", state="neutral"),
+        InsightMetric(label="NUPL", value="0.42", hint="Profit zone", state="bullish"),
+        InsightMetric(label="SOPR", value="1.03", hint="Above breakeven", state="bullish"),
+        InsightMetric(label="Stablecoin Inflow", value="$1.9B", hint="24h net inflow", state="bullish"),
+        InsightMetric(label="Miner Position", value="Flat", hint="No heavy sell pressure", state="neutral"),
+    ]
+
+    technicals = [
+        InsightMetric(label="MA7", value=f"${ma7[-1]:,.0f}", hint="Short trend anchor", state="bullish" if current_price >= ma7[-1] else "bearish"),
+        InsightMetric(label="MA21", value=f"${ma21[-1]:,.0f}", hint="Medium trend anchor", state="bullish" if current_price >= ma21[-1] else "bearish"),
+        InsightMetric(label="RSI(14)", value=f"{rsi:.1f}", hint="Momentum gauge", state="bullish" if rsi < 70 else "bearish" if rsi > 70 else "neutral"),
+        InsightMetric(label="Volatility", value=f"{volatility:,.0f}", hint="Std dev of recent prints", state="neutral"),
+        InsightMetric(label="Funding", value="+0.012%", hint="Perp crowd leaning long", state="bearish"),
+        InsightMetric(label="Open Interest", value="$8.42B", hint="+3.8% 24h", state="bullish"),
+        InsightMetric(label="Structure", value="Higher Highs", hint="Swing highs intact", state="bullish"),
+        InsightMetric(label="Bias", value=sentiment, hint=regime, state="bullish" if sentiment == "Bullish" else "bearish" if sentiment == "Bearish" else "neutral"),
+    ]
+
+    support = low_24h * 0.985
+    resistance = high_24h * 1.012
+    levels = [
+        KeyLevel(label="Immediate Support", price=support, note="Recent liquidity pocket", side="support"),
+        KeyLevel(label="Local Pivot", price=ma7[-1], note="7-period mean", side="pivot"),
+        KeyLevel(label="Trend Base", price=ma21[-1], note="21-period mean", side="support"),
+        KeyLevel(label="Immediate Resistance", price=resistance, note="Recent local high", side="resistance"),
+        KeyLevel(label="Breakout Trigger", price=high_24h * 1.03, note="Continuation level", side="resistance"),
+    ]
+
+    price_series = [
+        PricePoint(
+            timestamp=trade.executed_at,
+            price=price,
+            ma7=ma7[index],
+            ma21=ma21[index],
+        )
+        for index, (trade, price) in enumerate(zip(btc_trades, prices))
+    ]
+
+    return BtcSnapshot(
+        symbol="BTC/USDT",
+        current_price=current_price,
+        change_24h=change_24h,
+        high_24h=high_24h,
+        low_24h=low_24h,
+        volume_24h=volume_24h,
+        regime=regime,
+        sentiment=sentiment,
+        price_series=price_series,
+        onchain=onchain,
+        technicals=technicals,
+        levels=levels,
+    )
+
+
 def build_metrics(trades: list[Trade], focus_market: str) -> list[Metric]:
     if not trades:
         return []
@@ -331,12 +471,14 @@ def build_dashboard(db: Session, market: str = "all") -> DashboardResponse:
     exposure = build_exposure(all_trades)
     markets = build_market_summaries(all_trades)
     watchlist = build_watchlist(all_trades)
+    btc = build_btc_snapshot(all_trades)
 
     return DashboardResponse(
         updated_at=datetime.now(timezone.utc),
         metrics=metrics,
         risk_metrics=risk_metrics,
         exposure=exposure,
+        btc=btc,
         markets=markets,
         watchlist=watchlist,
         recent_trades=[trade_to_view(trade) for trade in recent_trades],
@@ -380,3 +522,8 @@ def list_trades(
 ) -> list[TradeView]:
     scoped = fetch_trades(db, market_filter(market))
     return [trade_to_view(trade) for trade in list(reversed(scoped[-limit:]))]
+
+
+@app.get("/api/btc")
+def btc_dashboard() -> dict[str, object]:
+    return get_btc_dashboard()

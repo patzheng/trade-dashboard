@@ -50,6 +50,42 @@ class ExposureRow(BaseModel):
     risk: str
 
 
+class InsightMetric(BaseModel):
+    label: str
+    value: str
+    hint: str
+    state: str
+
+
+class PricePoint(BaseModel):
+    timestamp: datetime
+    price: float
+    ma7: float
+    ma21: float
+
+
+class KeyLevel(BaseModel):
+    label: str
+    price: float
+    note: str
+    side: str
+
+
+class BtcSnapshot(BaseModel):
+    symbol: str
+    current_price: float
+    change_24h: float
+    high_24h: float
+    low_24h: float
+    volume_24h: float
+    regime: str
+    sentiment: str
+    price_series: list[PricePoint]
+    onchain: list[InsightMetric]
+    technicals: list[InsightMetric]
+    levels: list[KeyLevel]
+
+
 class TradeView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,6 +106,7 @@ class DashboardResponse(BaseModel):
     metrics: list[Metric]
     risk_metrics: list[RiskMetric]
     exposure: list[ExposureRow]
+    btc: BtcSnapshot
     markets: list[MarketSummary]
     watchlist: list[WatchlistItem]
     recent_trades: list[TradeView]

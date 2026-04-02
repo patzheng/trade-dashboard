@@ -1,0 +1,781 @@
+.shell {
+  position: relative;
+  width: min(1540px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 24px 0 40px;
+  overflow: hidden;
+}
+
+.shell::before,
+.shell::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: auto;
+  z-index: 0;
+  border-radius: 999px;
+  filter: blur(28px);
+}
+
+.shell::before {
+  width: 360px;
+  height: 360px;
+  right: -120px;
+  top: -80px;
+  background: rgba(89, 213, 255, 0.12);
+}
+
+.shell::after {
+  width: 520px;
+  height: 520px;
+  left: -220px;
+  bottom: 140px;
+  background: rgba(255, 173, 91, 0.08);
+}
+
+.orb,
+.gridGlow {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(24px);
+  z-index: 0;
+}
+
+.orb {
+  right: 12%;
+  top: 220px;
+  width: 180px;
+  height: 180px;
+  background: rgba(79, 225, 157, 0.12);
+}
+
+.gridGlow {
+  left: 24%;
+  top: 620px;
+  width: 120px;
+  height: 120px;
+  background: rgba(89, 213, 255, 0.1);
+}
+
+.header,
+.hero,
+.bottomGrid,
+.footer {
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0 22px;
+  border-bottom: 1px solid rgba(141, 173, 201, 0.12);
+}
+
+.headerText {
+  max-width: 920px;
+}
+
+.kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 12px 0 10px;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(42px, 5.8vw, 76px);
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+}
+
+.header p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.metaTile {
+  min-width: 150px;
+  padding: 14px 16px;
+  border: 1px solid rgba(141, 173, 201, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow);
+}
+
+.metaTile span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.metaTile strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.refreshButton {
+  appearance: none;
+  border: 1px solid rgba(89, 213, 255, 0.28);
+  border-radius: 16px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(89, 213, 255, 0.16), rgba(89, 213, 255, 0.07));
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.refreshButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(89, 213, 255, 0.44);
+}
+
+.refreshButton:disabled {
+  cursor: wait;
+  opacity: 0.8;
+}
+
+.errorBanner {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 111, 125, 0.25);
+  background: rgba(255, 111, 125, 0.08);
+  color: #ffc8cf;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.72fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.stage,
+.panel {
+  border-radius: 30px;
+  border: 1px solid rgba(141, 173, 201, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(89, 213, 255, 0.14), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(255, 173, 91, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(12, 20, 31, 0.96), rgba(7, 12, 19, 0.97));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  animation: rise 720ms ease both;
+}
+
+.stage {
+  padding: 22px;
+}
+
+.stageTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.68fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.stageKicker {
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.priceRow h2 {
+  margin: 0;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(44px, 6vw, 82px);
+  line-height: 0.92;
+  letter-spacing: -0.06em;
+}
+
+.priceRow span {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.regimeLine {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.heroStack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.heroStack div,
+.levelCard,
+.metricCard,
+.heroMetric,
+.facts div {
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.heroStack div {
+  padding: 14px 14px 16px;
+}
+
+.heroStack span,
+.levelCard span,
+.metricCard span,
+.heroMetric span,
+.facts span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.heroStack strong,
+.levelCard strong,
+.metricCard strong,
+.heroMetric strong,
+.facts strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 18px;
+}
+
+.chartCard {
+  margin-top: 18px;
+  border-radius: 26px;
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  background:
+    linear-gradient(180deg, rgba(8, 13, 20, 0.96), rgba(10, 16, 24, 0.82)),
+    rgba(8, 13, 20, 0.84);
+  overflow: hidden;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px 0;
+}
+
+.chartHeader span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.chartHeader strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.chartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.chartLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.chartLegend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legendPrice {
+  background: linear-gradient(135deg, #67dcff, #4fe19d);
+}
+
+.legendMa7 {
+  background: linear-gradient(135deg, #ffad5b, #ffd27d);
+}
+
+.legendMa50 {
+  background: #91a4c5;
+}
+
+.legendMa200 {
+  background: #7b8fb0;
+}
+
+.legendMa1400 {
+  background: #52647f;
+}
+
+.chartWrap {
+  height: 440px;
+  padding: 12px 10px 10px;
+}
+
+.chartWrap svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.linePrice {
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 12px rgba(79, 225, 157, 0.18));
+}
+
+.line7d {
+  stroke: rgba(255, 173, 91, 0.98);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line50d {
+  stroke: rgba(130, 190, 255, 0.74);
+  stroke-width: 2.4;
+  stroke-dasharray: 7 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line200d {
+  stroke: rgba(122, 232, 255, 0.44);
+  stroke-width: 2.1;
+  stroke-dasharray: 10 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line200w {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 2;
+  stroke-dasharray: 16 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chartFooter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+
+.chartFooter div {
+  padding: 14px 14px 16px;
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chartFooter span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.chartFooter strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.levelDeck {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.levelCard {
+  padding: 14px;
+  animation: rise 700ms ease both;
+}
+
+.levelCard p,
+.metricCard em,
+.heroMetric em,
+.panelHeader p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  font-style: normal;
+}
+
+.levelCard em {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(89, 213, 255, 0.08);
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-style: normal;
+}
+
+.rail {
+  display: grid;
+  gap: 14px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panelHeader h3 {
+  margin: 0;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metricCard {
+  padding: 14px 14px 16px;
+}
+
+.metricCard strong {
+  font-size: 16px;
+}
+
+.heroMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.heroMetric {
+  padding: 14px 14px 16px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.facts div {
+  padding: 14px 14px 16px;
+}
+
+.good {
+  color: var(--good);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.deepGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.deepPanel {
+  padding: 18px;
+  border-radius: 28px;
+  border: 1px solid rgba(141, 173, 201, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(89, 213, 255, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(12, 20, 31, 0.92), rgba(7, 12, 19, 0.95));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+  animation: rise 760ms ease both;
+}
+
+.panelTag {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(89, 213, 255, 0.24);
+  background: rgba(89, 213, 255, 0.08);
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.deepRows {
+  display: grid;
+  gap: 10px;
+}
+
+.deepRow {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.deepRow strong {
+  display: block;
+  font-size: 14px;
+}
+
+.deepRow span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.deepRow b {
+  flex-shrink: 0;
+  font-size: 15px;
+  text-align: right;
+}
+
+.structureFoot {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.structureFoot div {
+  padding: 12px 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(141, 173, 201, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.structureFoot span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.structureFoot strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 18px 0 0;
+  border-top: 1px solid rgba(141, 173, 201, 0.12);
+}
+
+.footer span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.footer strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.sourceList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.sourceList a {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 173, 201, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 12px;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.sourceList a:hover {
+  transform: translateY(-1px);
+  border-color: rgba(89, 213, 255, 0.34);
+  color: var(--text);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.emptyState {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 1280px) {
+  .hero,
+  .bottomGrid,
+  .stageTop {
+    grid-template-columns: 1fr;
+  }
+
+  .deepGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .headerMeta {
+    width: 100%;
+  }
+
+  .heroStack,
+  .metricGrid,
+  .heroMetricGrid,
+  .facts,
+  .chartFooter,
+  .levelDeck,
+  .structureFoot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    width: min(100vw - 16px, 100%);
+    padding: 12px 0 28px;
+  }
+
+  .header h1 {
+    font-size: clamp(32px, 11vw, 52px);
+  }
+
+  .chartHeader,
+  .footer {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .headerMeta,
+  .sourceList,
+  .chartLegend {
+    width: 100%;
+    justify-content: start;
+    flex-wrap: wrap;
+  }
+
+  .heroStack,
+  .metricGrid,
+  .heroMetricGrid,
+  .facts,
+  .chartFooter,
+  .levelDeck,
+  .structureFoot {
+    grid-template-columns: 1fr;
+  }
+
+  .chartWrap {
+    height: 320px;
+  }
+
+  .chartFooter {
+    padding-bottom: 18px;
+  }
+}

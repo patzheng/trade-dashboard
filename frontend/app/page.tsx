@@ -1,6 +1,5 @@
-import Dashboard from "@/components/Dashboard";
+import BtcDesk from "@/components/BtcDesk";
 
 export default function Page() {
-  return <Dashboard />;
+  return <BtcDesk />;
 }
-
