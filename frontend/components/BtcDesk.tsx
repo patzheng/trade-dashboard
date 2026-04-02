@@ -240,18 +240,9 @@ export default function BtcDesk() {
   const data = state.data;
 
   const blockchain: BtcBlockchainStats = data?.raw.blockchain ?? {};
-  const mempool: MempoolStats = data?.raw.mempool ?? {};
-  const cycleSignal = data?.cycle.cycle_signal;
-  const derivativesCards = data?.cycle.derivatives_cards ?? [];
   const sources = data?.sources ?? [];
   const bitview: BitViewStats = data?.raw.bitview ?? {};
 
-  const mempoolFast = mempool.fastestFee ?? null;
-  const mempoolHalf = mempool.halfHourFee ?? null;
-  const mempoolHour = mempool.hourFee ?? null;
-  const fearLatest: FearGreedEntry = data?.raw.fear_greed?.latest ?? {};
-  const fearValue = fearLatest.value ?? (data?.hero.fear_greed_value != null ? String(data.hero.fear_greed_value) : "—");
-  const fearClass = fearLatest.value_classification ?? data?.hero.fear_greed_label ?? "Neutral";
   const hashRateEh = typeof blockchain.hash_rate === "number" ? blockchain.hash_rate / 1_000_000_000_000_000_000 : null;
   const blockTime = typeof blockchain.minutes_between_blocks === "number" ? blockchain.minutes_between_blocks : null;
   const difficulty = typeof blockchain.difficulty === "number" ? blockchain.difficulty : null;
@@ -316,52 +307,6 @@ export default function BtcDesk() {
     },
   ];
 
-  const flowRows = [
-    {
-      label: "Fear & Greed",
-      value: `${fearValue} / ${fearClass}`,
-      hint: "Crowd temperature",
-    },
-    {
-      label: "BTC dominance",
-      value: data?.hero.btc_dominance != null ? `${formatNumber(data.hero.btc_dominance, 1)}%` : "—",
-      hint: "BTC share of total crypto cap",
-    },
-    {
-      label: "Fast fee",
-      value: mempoolFast != null ? `${mempoolFast} sat/vB` : "—",
-      hint: "Immediate congestion",
-    },
-    {
-      label: "30m / 1h fee",
-      value: `${mempoolHalf != null ? `${mempoolHalf}` : "—"} / ${mempoolHour != null ? `${mempoolHour}` : "—"}`,
-      hint: "Mempool heat ladder",
-    },
-  ];
-
-  const structureRows = [
-    {
-      label: "Price vs 200WMA",
-      value: data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—",
-      hint: "Cycle location",
-    },
-    {
-      label: "MA stack",
-      value: data?.hero.regime ?? "—",
-      hint: "Spot / short / medium trend",
-    },
-    {
-      label: "Price",
-      value: formatOptionalPrice(data?.hero.price),
-      hint: "Top-line BTC state",
-    },
-    {
-      label: "Bias",
-      value: data?.hero.regime ?? "—",
-      hint: "Structure summary",
-    },
-  ];
-
   const valuationRows = [
     {
       label: "MVRV",
@@ -385,29 +330,12 @@ export default function BtcDesk() {
     },
   ];
 
-  const cycleProgress = cycleSignal
-    ? Math.max(0, Math.min(100, ((cycleSignal.score + 4) / 8) * 100))
-    : 50;
-
   const onChainMetrics = [
-    chainRows[0],
-    chainRows[4],
-    chainRows[5],
+    ...chainRows,
     valuationRows[0],
-  ].filter((item): item is InsightMetric => Boolean(item));
-
-  const flowMetrics = [
-    flowRows[0],
-    flowRows[1],
-    derivativesCards[0],
-    derivativesCards[1],
-  ].filter((item): item is InsightMetric => Boolean(item));
-
-  const cycleMetrics = [
-    structureRows[0],
-    structureRows[1],
     valuationRows[1],
     valuationRows[2],
+    valuationRows[3],
   ].filter((item): item is InsightMetric => Boolean(item));
 
   return (
@@ -418,26 +346,14 @@ export default function BtcDesk() {
       <header className={styles.header}>
         <div className={styles.headerText}>
           <div className={styles.kicker}>BTC live desk</div>
-          <h1>BTC 三区工作台</h1>
-          <p>只看链上、资金、周期。价格只作为顶栏状态，不再占一个区块。</p>
+          <h1>BTC 链上工作台</h1>
+          <p>只保留链上一个区域。没有数据就空着，不再显示价格、资金、周期区块。</p>
         </div>
 
         <div className={styles.headerMeta}>
           <div className={styles.metaTile}>
             <span>Updated</span>
             <strong>{state.refreshedAt || "—"}</strong>
-          </div>
-          <div className={styles.metaTile}>
-            <span>Live BTC</span>
-            <strong className={data?.hero.change_24h != null ? (data.hero.change_24h >= 0 ? styles.good : styles.bad) : ""}>
-              {formatOptionalPrice(data?.hero.price)} · {formatOptionalChange(data?.hero.change_24h)}
-            </strong>
-          </div>
-          <div className={styles.metaTile}>
-            <span>Cycle</span>
-            <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
-              {cycleSignal?.label ?? "—"}
-            </strong>
           </div>
           <button className={styles.refreshButton} onClick={() => void loadData()} disabled={state.loading}>
             {state.loading ? "Refreshing..." : "Refresh"}
@@ -453,7 +369,11 @@ export default function BtcDesk() {
             <div>
               <span className={styles.panelTag}>On-chain</span>
               <h3>链上</h3>
-              <p>把供给、活跃度和估值放在一起看。</p>
+              <p>供给、活跃度、估值集中放在一块，只看链上本身。</p>
+            </div>
+            <div className={styles.sectionStatus}>
+              <strong>{onChainMetrics.filter((item) => item.value !== "—").length}</strong>
+              <span>live</span>
             </div>
           </div>
           <div className={styles.sectionGrid}>
@@ -466,83 +386,16 @@ export default function BtcDesk() {
             ))}
           </div>
         </article>
-
-        <article className={styles.workspaceSection}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <span className={styles.panelTag}>Flow</span>
-              <h3>资金</h3>
-              <p>只保留资金和衍生品相关的压力点。</p>
-            </div>
-          </div>
-          <div className={styles.sectionGrid}>
-            {flowMetrics.map((item) => (
-              <article key={item.label} className={styles.metricCard}>
-                <span>{item.label}</span>
-                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
-                  {item.value}
-                </strong>
-                <em>{item.hint}</em>
-              </article>
-            ))}
-          </div>
-        </article>
-
-        <article className={styles.workspaceSection}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <span className={styles.panelTag}>Cycle</span>
-              <h3>周期</h3>
-              <p>周期只回答一个问题：现在偏低、偏中还是偏高。</p>
-            </div>
-          </div>
-          <div className={styles.cycleSignal}>
-            <div>
-              <span>Cycle signal</span>
-              <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
-                {cycleSignal?.label ?? "—"}
-              </strong>
-            </div>
-            <p>{cycleSignal?.hint ?? "Waiting for live cycle data"}</p>
-            <small>
-              RSI {cycleSignal?.rsi14 != null ? formatNumber(cycleSignal.rsi14, 1) : "—"} · Price / 200WMA{" "}
-              {cycleSignal?.price_vs_200wma != null ? formatNumber(cycleSignal.price_vs_200wma, 2) : "—"}x · Score {cycleSignal?.score ?? "—"}
-            </small>
-            <div className={styles.cycleBar}>
-              <div className={styles.cycleBarScale}>
-                <span>Low</span>
-                <span>Neutral</span>
-                <span>High</span>
-              </div>
-              <div className={styles.cycleBarTrack} aria-hidden="true">
-                <div className={styles.cycleBarFill} style={{ width: `${cycleProgress}%` }} />
-                <div className={styles.cycleBarMarker} style={{ left: `${cycleProgress}%` }} />
-              </div>
-            </div>
-            <div className={styles.cycleLegend}>
-              <span className={styles.cycleLegendLow}>Low</span>
-              <span className={styles.cycleLegendMid}>Neutral</span>
-              <span className={styles.cycleLegendHigh}>High</span>
-            </div>
-          </div>
-          <div className={styles.sectionGrid}>
-            {cycleMetrics.map((item) => (
-              <article key={item.label} className={styles.metricCard}>
-                <span>{item.label}</span>
-                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
-                  {item.value}
-                </strong>
-                <em>{item.hint}</em>
-              </article>
-            ))}
-          </div>
-        </article>
       </section>
 
       <footer className={styles.footer}>
         <div>
           <span>Freshness</span>
           <strong>{state.refreshedAt || "—"}</strong>
+        </div>
+        <div>
+          <span>Area</span>
+          <strong>On-chain only</strong>
         </div>
         <div className={styles.sourceList}>
           {sources.map((source) => (
