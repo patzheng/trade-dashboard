@@ -4,6 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import styles from "./BtcDesk.module.css";
 
+const RANGE_OPTIONS = [
+  { label: "1M", points: 30 },
+  { label: "3M", points: 90 },
+  { label: "6M", points: 180 },
+  { label: "1Y", points: 365 },
+  { label: "ALL", points: Infinity },
+] as const;
+
 type ChartPoint = {
   timestamp: string;
   price: number;
@@ -222,6 +230,7 @@ function areaFrom(points: { x: number; y: number }[], height: number) {
 }
 
 export default function BtcDesk() {
+  const [chartRange, setChartRange] = useState<(typeof RANGE_OPTIONS)[number]["label"]>("3M");
   const [state, setState] = useState<{
     data: BtcApiResponse | null;
     loading: boolean;
@@ -265,8 +274,15 @@ export default function BtcDesk() {
   }, []);
 
   const data = state.data;
-  const series = data?.chart.series ?? [];
-  const layout = useMemo(() => scaleChart(series, 1200, 440), [series]);
+  const allSeries = data?.chart.series ?? [];
+  const visibleSeries = useMemo(() => {
+    const selected = RANGE_OPTIONS.find((option) => option.label === chartRange) ?? RANGE_OPTIONS[1];
+    if (!Number.isFinite(selected.points) || allSeries.length <= selected.points) {
+      return allSeries;
+    }
+    return allSeries.slice(-selected.points);
+  }, [allSeries, chartRange]);
+  const layout = useMemo(() => scaleChart(visibleSeries, 1200, 440), [visibleSeries]);
   const pricePath = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.priceY }))), [layout]);
   const areaPath = useMemo(() => areaFrom(layout.map((point) => ({ x: point.x, y: point.priceY })), 440), [layout]);
   const ma7Path = useMemo(() => pathFrom(layout.map((point) => ({ x: point.x, y: point.ma7Y }))), [layout]);
@@ -286,8 +302,8 @@ export default function BtcDesk() {
   const sources = data?.sources ?? [];
   const bitview: BitViewStats = data?.raw.bitview ?? {};
 
-  const latestPoint = series[series.length - 1];
-  const earliestPoint = series[0];
+  const latestPoint = visibleSeries[visibleSeries.length - 1];
+  const earliestPoint = visibleSeries[0];
   const priceRange = data ? data.chart.max - data.chart.min : 0;
   const mempoolFast = mempool.fastestFee ?? null;
   const mempoolHalf = mempool.halfHourFee ?? null;
@@ -305,6 +321,7 @@ export default function BtcDesk() {
   const nupl = typeof bitview.nupl === "number" ? bitview.nupl : null;
   const sopr = typeof bitview.sopr === "number" ? bitview.sopr : null;
   const realizedCap = typeof bitview.realized_cap === "number" ? bitview.realized_cap : null;
+  const currentRangeLabel = RANGE_OPTIONS.find((option) => option.label === chartRange)?.label ?? "3M";
 
   const chainRows = [
     {
@@ -486,10 +503,9 @@ export default function BtcDesk() {
       <header className={styles.header}>
         <div className={styles.headerText}>
           <div className={styles.kicker}>BTC live desk</div>
-          <h1>链上、技术面、情绪面，一屏看 BTC</h1>
+          <h1>BTC 状态总览</h1>
           <p>
-            这版直接接实时 API，主图用真实价格序列、均线和市场结构。链上数据来自
-            CoinGecko、Blockchain.com、mempool.space 和 Alternative.me，适合做日内和中周期判断。
+            先看周期位置，再看链上、资金和衍生品。页面默认只保留判断所需的少量信息，便于快速定位当前是低位、过热还是中位震荡。
           </p>
         </div>
 
@@ -499,8 +515,22 @@ export default function BtcDesk() {
             <strong>{state.refreshedAt || "—"}</strong>
           </div>
           <div className={styles.metaTile}>
-            <span>Sources</span>
-            <strong>{sources.length || 4}</strong>
+            <span>Cycle</span>
+            <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
+              {cycleSignal?.label ?? "Waiting"}
+            </strong>
+          </div>
+          <div className={styles.rangeTabs} role="tablist" aria-label="Chart range">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                className={`${styles.rangeTab} ${chartRange === option.label ? styles.rangeTabActive : ""}`}
+                onClick={() => setChartRange(option.label)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
           <button className={styles.refreshButton} onClick={() => void loadData()} disabled={state.loading}>
             {state.loading ? "Refreshing..." : "Refresh"}
@@ -608,7 +638,7 @@ export default function BtcDesk() {
               </div>
               <div>
                 <span>Window</span>
-                <strong>{series.length ? `${series.length} points` : "—"}</strong>
+                <strong>{visibleSeries.length ? `${visibleSeries.length} points · ${currentRangeLabel}` : "—"}</strong>
               </div>
               <div>
                 <span>Price span</span>
@@ -649,7 +679,7 @@ export default function BtcDesk() {
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <div>
-                <h3>链上脉冲</h3>
+                <h3>链上供需</h3>
                 <p>供给、算力、交易热度。</p>
               </div>
             </div>
@@ -709,12 +739,12 @@ export default function BtcDesk() {
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <div>
-                <h3>技术面</h3>
-                <p>均线、动量、结构状态。</p>
+                <h3>资金与衍生品</h3>
+                <p>Funding、Open Interest、Mark Price。</p>
               </div>
             </div>
             <div className={styles.metricGrid}>
-              {technicalCards.map((item) => (
+              {derivativesCards.map((item) => (
                 <article key={item.label} className={styles.metricCard}>
                   <span>{item.label}</span>
                   <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
@@ -723,6 +753,14 @@ export default function BtcDesk() {
                   <em>{item.hint}</em>
                 </article>
               ))}
+              <article className={styles.metricCard}>
+                <span>Mempool fee</span>
+                <strong>{mempoolFast != null ? `${mempoolFast} sat/vB` : "—"}</strong>
+                <em>
+                  {mempoolHalf != null ? `30m ${mempoolHalf} · ` : ""}
+                  {mempoolHour != null ? `1h ${mempoolHour}` : "fee ladder"}
+                </em>
+              </article>
             </div>
           </section>
 
@@ -743,14 +781,6 @@ export default function BtcDesk() {
                   <em>{item.hint}</em>
                 </article>
               ))}
-              <article className={styles.metricCard}>
-                <span>Mempool fee</span>
-                <strong>{mempoolFast != null ? `${mempoolFast} sat/vB` : "—"}</strong>
-                <em>
-                  {mempoolHalf != null ? `30m ${mempoolHalf} · ` : ""}
-                  {mempoolHour != null ? `1h ${mempoolHour}` : "fee ladder"}
-                </em>
-              </article>
             </div>
           </section>
         </aside>
@@ -883,7 +913,7 @@ export default function BtcDesk() {
             ))}
           </div>
           <div className={styles.structureFoot}>
-            {valuationRows.slice(0, 3).map((item) => (
+            {technicalCards.slice(0, 3).map((item) => (
               <div key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
