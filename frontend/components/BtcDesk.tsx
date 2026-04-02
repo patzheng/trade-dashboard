@@ -41,21 +41,21 @@ type BtcApiResponse = {
   updated_at: string;
   hero: {
     symbol: string;
-    price: number;
-    change_24h: number;
-    market_cap: number;
-    volume_24h: number;
-    btc_dominance: number;
-    fear_greed_value: number;
+    price: number | null;
+    change_24h: number | null;
+    market_cap: number | null;
+    volume_24h: number | null;
+    btc_dominance: number | null;
+    fear_greed_value: number | null;
     fear_greed_label: string;
     fear_greed_updated_at: string | null;
-    regime: string;
-    price_vs_200wma: number;
+    regime: string | null;
+    price_vs_200wma: number | null;
   };
   chart: {
     series: ChartPoint[];
-    min: number;
-    max: number;
+    min: number | null;
+    max: number | null;
   };
   cycle: {
     hero_metrics: InsightMetric[];
@@ -69,9 +69,9 @@ type BtcApiResponse = {
       hint: string;
       score: number;
       state: string;
-      rsi14: number;
-      price_vs_200wma: number;
-    };
+      rsi14: number | null;
+      price_vs_200wma: number | null;
+    } | null;
     sentiment_cards: InsightMetric[];
   };
   raw: {
@@ -87,17 +87,17 @@ type BtcApiResponse = {
 };
 
 type BtcBlockchainStats = {
-  minutes_between_blocks?: number;
-  hash_rate?: number;
-  difficulty?: number;
-  miners_revenue_usd?: number;
-  estimated_transaction_volume_usd?: number;
+  minutes_between_blocks?: number | null;
+  hash_rate?: number | null;
+  difficulty?: number | null;
+  miners_revenue_usd?: number | null;
+  estimated_transaction_volume_usd?: number | null;
 };
 
 type MempoolStats = {
-  fastestFee?: number;
-  halfHourFee?: number;
-  hourFee?: number;
+  fastestFee?: number | null;
+  halfHourFee?: number | null;
+  hourFee?: number | null;
 };
 
 type FearGreedEntry = {
@@ -145,6 +145,10 @@ function formatChange(value: number) {
   return `${prefix}${value.toFixed(2)}%`;
 }
 
+function formatOptionalChange(value: number | null | undefined) {
+  return value == null || Number.isNaN(value) ? "—" : formatChange(value);
+}
+
 function formatCompact(value: number) {
   const abs = Math.abs(value);
   const sign = value >= 0 ? "+" : "-";
@@ -170,6 +174,22 @@ function formatNumber(value: number, digits = 1) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
+}
+
+function formatOptionalNumber(value: number | null | undefined, digits = 1) {
+  return value == null || Number.isNaN(value) ? "—" : formatNumber(value, digits);
+}
+
+function formatOptionalPrice(value: number | null | undefined, digits = 0) {
+  return value == null || Number.isNaN(value) ? "—" : formatPrice(value, digits);
+}
+
+function formatOptionalCompact(value: number | null | undefined) {
+  return value == null || Number.isNaN(value) ? "—" : formatCompact(value);
+}
+
+function formatOptionalCompactCount(value: number | null | undefined) {
+  return value == null || Number.isNaN(value) ? "—" : formatCompactCount(value);
 }
 
 function formatDelta(value: number | null | undefined) {
@@ -263,6 +283,7 @@ export default function BtcDesk() {
     } catch (error) {
       setState((current) => ({
         ...current,
+        data: null,
         loading: false,
         error: error instanceof Error ? error.message : "Unknown error",
       }));
@@ -304,17 +325,17 @@ export default function BtcDesk() {
 
   const latestPoint = visibleSeries[visibleSeries.length - 1];
   const earliestPoint = visibleSeries[0];
-  const priceRange = data ? data.chart.max - data.chart.min : 0;
+  const priceRange = data && data.chart.max != null && data.chart.min != null ? data.chart.max - data.chart.min : null;
   const mempoolFast = mempool.fastestFee ?? null;
   const mempoolHalf = mempool.halfHourFee ?? null;
   const mempoolHour = mempool.hourFee ?? null;
   const fearLatest: FearGreedEntry = data?.raw.fear_greed?.latest ?? {};
-  const fearValue = fearLatest.value ?? String(data?.hero.fear_greed_value ?? "0");
+  const fearValue = fearLatest.value ?? (data?.hero.fear_greed_value != null ? String(data.hero.fear_greed_value) : "—");
   const fearClass = fearLatest.value_classification ?? data?.hero.fear_greed_label ?? "Neutral";
-  const hashRateEh = Number(blockchain.hash_rate ?? 0) / 1_000_000_000_000_000_000;
-  const blockTime = Number(blockchain.minutes_between_blocks ?? 0);
-  const difficulty = Number(blockchain.difficulty ?? 0);
-  const txVolume = Number(blockchain.estimated_transaction_volume_usd ?? 0);
+  const hashRateEh = typeof blockchain.hash_rate === "number" ? blockchain.hash_rate / 1_000_000_000_000_000_000 : null;
+  const blockTime = typeof blockchain.minutes_between_blocks === "number" ? blockchain.minutes_between_blocks : null;
+  const difficulty = typeof blockchain.difficulty === "number" ? blockchain.difficulty : null;
+  const txVolume = typeof blockchain.estimated_transaction_volume_usd === "number" ? blockchain.estimated_transaction_volume_usd : null;
   const activeAddresses = typeof bitview.active_addresses === "number" ? bitview.active_addresses : null;
   const exchangeReserves = typeof bitview.exchange_reserves === "number" ? bitview.exchange_reserves : null;
   const mvrv = typeof bitview.mvrv === "number" ? bitview.mvrv : null;
@@ -326,22 +347,22 @@ export default function BtcDesk() {
   const chainRows = [
     {
       label: "Hash rate",
-      value: `${formatNumber(hashRateEh, 0)} EH/s`,
+      value: hashRateEh != null ? `${formatNumber(hashRateEh, 0)} EH/s` : "—",
       hint: "Network work rate",
     },
     {
       label: "Difficulty",
-      value: formatNumber(difficulty, 0),
+      value: formatOptionalNumber(difficulty, 0),
       hint: "Next retarget balances the chain",
     },
     {
       label: "Block time",
-      value: `${formatNumber(blockTime, 1)} min`,
+      value: blockTime != null ? `${formatNumber(blockTime, 1)} min` : "—",
       hint: "Faster blocks usually mean fuller mempool",
     },
     {
       label: "Tx volume",
-      value: formatCompact(txVolume),
+      value: formatOptionalCompact(txVolume),
       hint: "Estimated value settled on-chain",
     },
     {
@@ -384,7 +405,7 @@ export default function BtcDesk() {
     },
     {
       label: "BTC dominance",
-      value: `${formatNumber(data?.hero.btc_dominance ?? 0, 1)}%`,
+      value: data?.hero.btc_dominance != null ? `${formatNumber(data.hero.btc_dominance, 1)}%` : "—",
       hint: "BTC share of total crypto cap",
     },
     {
@@ -402,7 +423,7 @@ export default function BtcDesk() {
   const structureRows = [
     {
       label: "Price vs 200WMA",
-      value: `${formatNumber(data?.hero.price_vs_200wma ?? 0, 2)}x`,
+      value: data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—",
       hint: "Cycle location",
     },
     {
@@ -412,7 +433,7 @@ export default function BtcDesk() {
     },
     {
       label: "Swing range",
-      value: data ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
+      value: data && data.chart.min != null && data.chart.max != null ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
       hint: "Visible chart envelope",
     },
     {
@@ -475,17 +496,17 @@ export default function BtcDesk() {
   const priceRows = [
     {
       label: "Current price",
-      value: data ? formatPrice(data.hero.price) : "—",
+      value: formatOptionalPrice(data?.hero.price),
       hint: "Live BTC print",
     },
     {
       label: "24h change",
-      value: formatChange(data?.hero.change_24h ?? 0),
+      value: formatOptionalChange(data?.hero.change_24h),
       hint: "Session momentum",
     },
     {
       label: "Range",
-      value: data ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
+      value: data && data.chart.min != null && data.chart.max != null ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
       hint: "Visible envelope",
     },
     {
@@ -546,25 +567,25 @@ export default function BtcDesk() {
             <div>
               <div className={styles.stageKicker}>{data?.hero.symbol ?? "BTC"}</div>
               <div className={styles.priceRow}>
-                <h2>{formatPrice(data?.hero.price ?? 0)}</h2>
-                <span className={(data?.hero.change_24h ?? 0) >= 0 ? styles.good : styles.bad}>
-                  {formatChange(data?.hero.change_24h ?? 0)}
+                <h2>{formatOptionalPrice(data?.hero.price)}</h2>
+                <span className={data?.hero.change_24h != null ? (data.hero.change_24h >= 0 ? styles.good : styles.bad) : ""}>
+                  {formatOptionalChange(data?.hero.change_24h)}
                 </span>
               </div>
               <p className={styles.regimeLine}>
                 {data?.hero.regime ?? "Waiting for live data"} · {data?.hero.fear_greed_label ?? "Neutral"} ·{" "}
-                {formatNumber(data?.hero.btc_dominance ?? 0, 1)}% BTC dominance
+                {data?.hero.btc_dominance != null ? `${formatNumber(data.hero.btc_dominance, 1)}% BTC dominance` : "BTC dominance —"}
               </p>
             </div>
 
             <div className={styles.heroStack}>
               <div>
                 <span>Market cap</span>
-                <strong>{formatCompact(data?.hero.market_cap ?? 0)}</strong>
+                <strong>{formatOptionalCompact(data?.hero.market_cap)}</strong>
               </div>
               <div>
                 <span>24h volume</span>
-                <strong>{formatCompact(data?.hero.volume_24h ?? 0)}</strong>
+                <strong>{formatOptionalCompact(data?.hero.volume_24h)}</strong>
               </div>
               <div>
                 <span>Fear & Greed</span>
@@ -574,7 +595,7 @@ export default function BtcDesk() {
               </div>
               <div>
                 <span>200WMA ratio</span>
-                <strong>{formatNumber(data?.hero.price_vs_200wma ?? 0, 2)}x</strong>
+                <strong>{data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—"}</strong>
               </div>
             </div>
           </div>
@@ -634,7 +655,7 @@ export default function BtcDesk() {
           <div className={styles.chartFooter}>
               <div>
                 <span>Range</span>
-                <strong>{data ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—"}</strong>
+                <strong>{data && data.chart.min != null && data.chart.max != null ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—"}</strong>
               </div>
               <div>
                 <span>Window</span>
@@ -642,7 +663,7 @@ export default function BtcDesk() {
               </div>
               <div>
                 <span>Price span</span>
-                <strong>{data ? formatCompact(priceRange) : "—"}</strong>
+                <strong>{priceRange != null ? formatCompact(priceRange) : "—"}</strong>
               </div>
               <div>
                 <span>Previous</span>
@@ -871,16 +892,16 @@ export default function BtcDesk() {
             <span className={styles.panelTag}>Cycle</span>
           </div>
           <div className={styles.cycleSignal}>
-            <div>
-              <span>Cycle signal</span>
-              <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
-                {cycleSignal?.label ?? "—"}
-              </strong>
-            </div>
+              <div>
+                <span>Cycle signal</span>
+                <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
+                  {cycleSignal?.label ?? "—"}
+                </strong>
+              </div>
             <p>{cycleSignal?.hint ?? "Waiting for live cycle data"}</p>
             <small>
-              RSI {cycleSignal ? formatNumber(cycleSignal.rsi14, 1) : "—"} · Price / 200WMA{" "}
-              {cycleSignal ? formatNumber(cycleSignal.price_vs_200wma, 2) : "—"}x · Score {cycleSignal?.score ?? "—"}
+              RSI {cycleSignal?.rsi14 != null ? formatNumber(cycleSignal.rsi14, 1) : "—"} · Price / 200WMA{" "}
+              {cycleSignal?.price_vs_200wma != null ? formatNumber(cycleSignal.price_vs_200wma, 2) : "—"}x · Score {cycleSignal?.score ?? "—"}
             </small>
             <div className={styles.cycleBar}>
               <div className={styles.cycleBarScale}>

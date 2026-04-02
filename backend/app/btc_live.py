@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from datetime import datetime, timedelta, timezone
 from math import sqrt
 from statistics import mean
@@ -13,11 +12,10 @@ from urllib.request import Request, urlopen
 
 BTC_ID = "bitcoin"
 BTC_FUTURES_SYMBOL = "BTCUSDT"
-CACHE_TTL_SECONDS = 60
 BITVIEW_BASE_URL = os.getenv("BITVIEW_BASE_URL", "https://bitview.space/api")
 BINANCE_BASE_URL = os.getenv("BINANCE_BASE_URL", "https://fapi.binance.com")
+BINANCE_SPOT_BASE_URL = os.getenv("BINANCE_SPOT_BASE_URL", "https://api.binance.com")
 
-_CACHE: dict[str, Any] = {"ts": 0.0, "payload": None}
 T = TypeVar("T")
 
 
@@ -475,6 +473,11 @@ def fetch_binance_funding_history(limit: int = 30) -> list[dict[str, Any]]:
     return fetch_list(url)
 
 
+def fetch_binance_spot_ticker() -> dict[str, Any]:
+    url = f"{BINANCE_SPOT_BASE_URL.rstrip('/')}/api/v3/ticker/24hr?symbol={BTC_FUTURES_SYMBOL}"
+    return fetch_json(url)
+
+
 def pick_points(series: list[dict[str, Any]], count: int = 360) -> list[dict[str, Any]]:
     return series[-count:] if len(series) > count else series
 
@@ -617,23 +620,10 @@ def build_signals(history: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
 
 def build_btc_dashboard() -> dict[str, Any]:
     now = datetime.now(timezone.utc)
-    bitview_history = safe_call(bitview_price_history, [])
-    market_history = safe_call(btc_price_history, [])
-    history = bitview_history or market_history
-
-    if not history:
-        cached = _CACHE.get("payload")
-        if isinstance(cached, dict):
-            payload = cached
-            _CACHE["ts"] = time.time()
-            return payload
-        payload = fallback_btc_dashboard("No live price history available")
-        _CACHE["ts"] = time.time()
-        _CACHE["payload"] = payload
-        return payload
-
-    latest = history[-1]
-    prior_24h = history[-2]["price"] if len(history) >= 2 else latest["price"]
+    history = safe_call(bitview_price_history, [])
+    spot_ticker = safe_call(fetch_binance_spot_ticker, {})
+    latest = history[-1] if history else {}
+    prior_24h = history[-2]["price"] if len(history) >= 2 else (latest.get("price") if isinstance(latest, dict) else None)
     global_data = safe_call(global_snapshot, {})
     blockchain_legacy = safe_call(blockchain_stats, {})
     bitview_blocks = safe_call(bitview_block_metrics, {})
@@ -645,21 +635,71 @@ def build_btc_dashboard() -> dict[str, Any]:
     binance_funding_history = safe_call(fetch_binance_funding_history, [])
     hero_metrics, technical_cards, level_rows = build_signals(history)
 
-    current_price = float(latest["price"])
-    change_24h = ((current_price - prior_24h) / prior_24h * 100) if prior_24h else 0.0
-    market_snapshot = market_history[-1] if market_history else latest
-    market_cap = float(market_snapshot.get("market_cap") or 0.0)
-    volume_24h = float(market_snapshot.get("volume") or 0.0)
-    btc_dominance = float(global_data.get("market_cap_percentage", {}).get("btc", 0.0))
-    total_market_cap = float(global_data.get("total_market_cap", {}).get("usd", 0.0))
+    current_price: float | None = None
+    if isinstance(spot_ticker, dict):
+        try:
+            current_price = float(spot_ticker.get("lastPrice") or 0) or None
+        except (TypeError, ValueError):
+            current_price = None
+    if current_price is None and isinstance(latest, dict):
+        try:
+            current_price = float(latest.get("price") or 0) or None
+        except (TypeError, ValueError):
+            current_price = None
+
+    change_24h: float | None = None
+    if isinstance(spot_ticker, dict):
+        try:
+            change_24h = float(spot_ticker.get("priceChangePercent") or 0) or None
+        except (TypeError, ValueError):
+            change_24h = None
+    if change_24h is None and current_price is not None and prior_24h:
+        change_24h = ((current_price - prior_24h) / prior_24h * 100) if prior_24h else None
+
+    quote_volume_24h: float | None = None
+    if isinstance(spot_ticker, dict):
+        try:
+            quote_volume_24h = float(spot_ticker.get("quoteVolume") or 0) or None
+        except (TypeError, ValueError):
+            quote_volume_24h = None
+
+    circulating_supply_btc = float(blockchain_legacy.get("totalbc", 0) or 0) / 100_000_000
+    market_cap = current_price * circulating_supply_btc if current_price is not None and circulating_supply_btc else None
+    volume_24h = quote_volume_24h
+
+    btc_dominance: float | None = None
+    try:
+        btc_dominance = float(global_data.get("market_cap_percentage", {}).get("btc", 0.0) or 0) or None
+    except (TypeError, ValueError, AttributeError):
+        btc_dominance = None
+
+    total_market_cap: float | None = None
+    try:
+        total_market_cap = float(global_data.get("total_market_cap", {}).get("usd", 0.0) or 0) or None
+    except (TypeError, ValueError, AttributeError):
+        total_market_cap = None
+
     fear_greed_latest = fng.get("latest") or {}
-    fear_greed_value = int(fear_greed_latest.get("value", "0") or 0)
+    fear_greed_value = int(fear_greed_latest.get("value", "0") or 0) if fear_greed_latest.get("value") is not None else None
     fear_greed_label = fear_greed_latest.get("value_classification", "Neutral")
-    fear_greed_updated = int(fear_greed_latest.get("timestamp", "0") or 0)
-    funding_rate = float(binance_premium.get("lastFundingRate", 0) or 0)
-    mark_price = float(binance_premium.get("markPrice", 0) or 0)
-    estimated_settle_price = float(binance_premium.get("estimatedSettlePrice", 0) or 0)
-    open_interest_btc = float(binance_oi.get("openInterest", 0) or 0)
+    fear_greed_updated = int(fear_greed_latest.get("timestamp", "0") or 0) if fear_greed_latest.get("timestamp") else None
+
+    funding_rate: float | None = None
+    mark_price: float | None = None
+    estimated_settle_price: float | None = None
+    try:
+        funding_rate = float(binance_premium.get("lastFundingRate", 0) or 0) or None
+        mark_price = float(binance_premium.get("markPrice", 0) or 0) or None
+        estimated_settle_price = float(binance_premium.get("estimatedSettlePrice", 0) or 0) or None
+    except (TypeError, ValueError, AttributeError):
+        funding_rate = None
+        mark_price = None
+        estimated_settle_price = None
+
+    try:
+        open_interest_btc = float(binance_oi.get("openInterest", 0) or 0) or None
+    except (TypeError, ValueError, AttributeError):
+        open_interest_btc = None
 
     def parse_rate(item: dict[str, Any]) -> float:
         value = item.get("fundingRate") or 0
@@ -687,27 +727,32 @@ def build_btc_dashboard() -> dict[str, Any]:
     days_to_halving = (blocks_to_halving * minutes_between_blocks) / 60 / 24 if blocks_to_halving else 0.0
     current_subsidy = 50 / (2 ** (blocks_total // 210000)) if blocks_total else 3.125
     blocks_to_retarget = 2016
-    circulating_supply_btc = float(blockchain_legacy.get("totalbc", 0) or 0) / 100_000_000
     hash_rate_ehs = float(blockchain_legacy.get("hash_rate", 0) or 0) / 1_000_000_000_000_000_000
     difficulty = float(bitview_blocks.get("difficulty", blockchain_legacy.get("difficulty", 0)) or 0)
     miners_revenue_usd = float(blockchain_legacy.get("miners_revenue_usd", 0) or 0)
     n_tx = int(bitview_blocks.get("tx_count", blockchain_legacy.get("n_tx", 0)) or 0)
     estimated_tx_volume = float(bitview_blocks.get("size", blockchain_legacy.get("estimated_transaction_volume_usd", 0)) or 0)
-    if not market_cap:
-        market_cap = current_price * circulating_supply_btc
-    bitview_onchain = bitview_onchain_snapshot(market_cap=market_cap or None)
-    prices = [float(point["price"]) for point in history]
-    rsi14 = calculate_rsi(prices)
-    price_vs_200wma = current_price / latest["ma1400"] if latest["ma1400"] else 0.0
+    bitview_onchain = bitview_onchain_snapshot(market_cap=market_cap) if market_cap is not None else bitview_onchain_snapshot(market_cap=None)
+
+    prices = [float(point["price"]) for point in history] if history else []
+    rsi14 = calculate_rsi(prices) if prices else None
+    price_vs_200wma = (
+        current_price / latest["ma1400"]
+        if current_price is not None and isinstance(latest, dict) and latest.get("ma1400")
+        else None
+    )
+
     cycle_score = 0
-    cycle_score += 1 if price_vs_200wma >= 1.0 else -1
+    if price_vs_200wma is not None:
+        cycle_score += 1 if price_vs_200wma >= 1.0 else -1
     if bitview_onchain.get("mvrv") is not None:
         cycle_score += 1 if bitview_onchain["mvrv"] < 1.0 else -1 if bitview_onchain["mvrv"] > 3.0 else 0
     if bitview_onchain.get("nupl") is not None:
         cycle_score += 1 if bitview_onchain["nupl"] < 0.25 else -1 if bitview_onchain["nupl"] > 0.55 else 0
     if bitview_onchain.get("sopr") is not None:
         cycle_score += 1 if bitview_onchain["sopr"] <= 1.0 else -1
-    cycle_score += 1 if rsi14 <= 45 else -1 if rsi14 >= 70 else 0
+    if rsi14 is not None:
+        cycle_score += 1 if rsi14 <= 45 else -1 if rsi14 >= 70 else 0
     if cycle_score >= 2:
         cycle_state = "bullish"
         cycle_label = "Low / Accumulation"
@@ -724,49 +769,49 @@ def build_btc_dashboard() -> dict[str, Any]:
     network_cards = [
         {
             "label": "Hash Rate",
-            "value": f"{hash_rate_ehs:,.0f} EH/s",
+            "value": f"{hash_rate_ehs:,.0f} EH/s" if hash_rate_ehs else "—",
             "hint": "Derived from BitView block weight / activity",
             "state": "bullish" if hash_rate_ehs > 0 else "neutral",
         },
         {
             "label": "Difficulty",
-            "value": f"{difficulty:,.0f}",
+            "value": f"{difficulty:,.0f}" if difficulty else "—",
             "hint": "BitView / Blockchain difficulty",
             "state": "neutral",
         },
         {
             "label": "Block Time",
-            "value": f"{minutes_between_blocks:.1f} min",
+            "value": f"{minutes_between_blocks:.1f} min" if minutes_between_blocks else "—",
             "hint": "Average block interval",
-            "state": "bullish" if minutes_between_blocks <= 10 else "bearish",
+            "state": "bullish" if minutes_between_blocks and minutes_between_blocks <= 10 else "neutral",
         },
         {
             "label": "Miners Revenue",
-            "value": f"${miners_revenue_usd:,.0f}",
+            "value": f"${miners_revenue_usd:,.0f}" if miners_revenue_usd else "—",
             "hint": "Blockchain.com revenue estimate",
             "state": "bullish" if miners_revenue_usd > 0 else "neutral",
         },
         {
             "label": "Tx Count",
-            "value": f"{n_tx:,}",
+            "value": f"{n_tx:,}" if n_tx else "—",
             "hint": "Latest BitView block transactions",
             "state": "neutral",
         },
         {
             "label": "Estimated Tx Volume",
-            "value": f"${estimated_tx_volume:,.0f}",
+            "value": f"${estimated_tx_volume:,.0f}" if estimated_tx_volume else "—",
             "hint": "BitView block size proxy",
             "state": "neutral",
         },
         {
             "label": "Supply",
-            "value": f"{circulating_supply_btc:,.2f} BTC",
+            "value": f"{circulating_supply_btc:,.2f} BTC" if circulating_supply_btc else "—",
             "hint": "Blockchain.com supply proxy",
             "state": "neutral",
         },
         {
             "label": "Halving",
-            "value": f"{blocks_to_halving:,} blocks",
+            "value": f"{blocks_to_halving:,} blocks" if blocks_to_halving else "—",
             "hint": f"~{days_to_halving:.0f} days · reward {current_subsidy:.3f} BTC",
             "state": "neutral",
         },
@@ -804,13 +849,13 @@ def build_btc_dashboard() -> dict[str, Any]:
             "label": "Funding",
             "value": f"{funding_rate * 100:+.4f}%" if funding_rate is not None else "—",
             "hint": f"Avg 7d {funding_avg_7d * 100:+.4f}% · 30d {funding_avg_30d * 100:+.4f}%" if funding_avg_7d is not None and funding_avg_30d is not None else "Perp carry",
-            "state": "bearish" if funding_rate > 0 else "bullish" if funding_rate < 0 else "neutral",
+            "state": "bearish" if funding_rate is not None and funding_rate > 0 else "bullish" if funding_rate is not None and funding_rate < 0 else "neutral",
         },
         {
             "label": "Open Interest",
-            "value": f"{open_interest_btc:,.0f} BTC",
+            "value": f"{open_interest_btc:,.0f} BTC" if open_interest_btc else "—",
             "hint": f"7d {oi_change_7d:+.1f}% · 30d {oi_change_30d:+.1f}%" if oi_change_7d is not None and oi_change_30d is not None else "Perp leverage",
-            "state": "bullish" if open_interest_btc > 0 else "neutral",
+            "state": "bullish" if open_interest_btc is not None and open_interest_btc > 0 else "neutral",
         },
         {
             "label": "Mark price",
@@ -829,37 +874,37 @@ def build_btc_dashboard() -> dict[str, Any]:
     sentiment_cards = [
         {
             "label": "Fear & Greed",
-            "value": f"{fear_greed_value}",
+            "value": f"{fear_greed_value}" if fear_greed_value is not None else "—",
             "hint": fear_greed_label,
-            "state": "bearish" if fear_greed_value <= 25 else "neutral" if fear_greed_value <= 60 else "bullish",
+            "state": "bearish" if fear_greed_value is not None and fear_greed_value <= 25 else "neutral" if fear_greed_value is not None and fear_greed_value <= 60 else "neutral",
         },
         {
             "label": "BTC Dominance",
-            "value": f"{btc_dominance:.1f}%",
+            "value": f"{btc_dominance:.1f}%" if btc_dominance is not None else "—",
             "hint": "Share of total crypto market cap",
-            "state": "bullish" if btc_dominance >= 50 else "neutral",
+            "state": "bullish" if btc_dominance is not None and btc_dominance >= 50 else "neutral",
         },
         {
             "label": "Crypto Market Cap",
-            "value": f"${total_market_cap / 1_000_000_000_000:.2f}T",
+            "value": f"${total_market_cap / 1_000_000_000_000:.2f}T" if total_market_cap is not None else "—",
             "hint": "Global crypto market size",
             "state": "neutral",
         },
         {
             "label": "Retarget",
-            "value": f"{blocks_to_retarget:,} blocks",
+            "value": f"{blocks_to_retarget:,} blocks" if blocks_to_retarget else "—",
             "hint": "Next difficulty adjustment",
             "state": "neutral",
         },
     ]
 
     chart_series = pick_points(history, 420)
-    chart_max = max(point["price"] for point in chart_series) if chart_series else current_price
-    chart_min = min(point["price"] for point in chart_series) if chart_series else current_price
+    chart_max = max(point["price"] for point in chart_series) if chart_series else None
+    chart_min = min(point["price"] for point in chart_series) if chart_series else None
 
     sources = [
         {"label": "BitView", "url": "https://bitview.space/api"},
-        {"label": "CoinGecko", "url": "https://docs.coingecko.com/"},
+        {"label": "Binance", "url": "https://api.binance.com/"},
         {"label": "Blockchain.com", "url": "https://www.blockchain.com/en/api/charts_api"},
         {"label": "mempool.space", "url": "https://mempool.space/"},
         {"label": "Alternative.me", "url": "https://alternative.me/crypto/fear-and-greed-index/"},
@@ -877,8 +922,8 @@ def build_btc_dashboard() -> dict[str, Any]:
             "fear_greed_value": fear_greed_value,
             "fear_greed_label": fear_greed_label,
             "fear_greed_updated_at": datetime.fromtimestamp(fear_greed_updated, tz=timezone.utc).isoformat() if fear_greed_updated else None,
-            "regime": "Bull trend" if current_price > latest["ma200"] else "Cycle compression",
-            "price_vs_200wma": current_price / latest["ma1400"] if latest["ma1400"] else 0.0,
+            "regime": "Bull trend" if current_price is not None and isinstance(latest, dict) and latest.get("ma200") and current_price > latest["ma200"] else "Cycle compression" if current_price is not None else None,
+            "price_vs_200wma": price_vs_200wma,
         },
         "chart": {
             "series": chart_series,
@@ -892,7 +937,7 @@ def build_btc_dashboard() -> dict[str, Any]:
             "network_cards": network_cards,
             "onchain_cards": onchain_cards,
             "derivatives_cards": derivatives_cards,
-            "cycle_signal": {
+            "cycle_signal": None if current_price is None and not history else {
                 "label": cycle_label,
                 "hint": cycle_hint,
                 "score": cycle_score,
@@ -918,105 +963,8 @@ def build_btc_dashboard() -> dict[str, Any]:
         "sources": sources,
     }
 
-    _CACHE["ts"] = time.time()
-    _CACHE["payload"] = payload
     return payload
 
 
-def fallback_btc_dashboard(reason: str) -> dict[str, Any]:
-    now = datetime.now(timezone.utc)
-    base_price = 70000.0
-    chart_series = []
-    for index in range(420):
-        t = now - timedelta(days=419 - index)
-        swing = (index / 18.0)
-        price = base_price + (index * 13.5) + (swing * 1200) - (swing % 7) * 300
-        chart_series.append(
-            {
-                "timestamp": t.isoformat(),
-                "price": price,
-                "market_cap": price * 19_700_000,
-                "volume": 35_000_000_000 + index * 2_000_000,
-                "ma7": price * 0.98,
-                "ma50": price * 0.95,
-                "ma200": price * 0.90,
-                "ma1400": price * 0.82,
-            }
-        )
-    return {
-        "updated_at": now.isoformat(),
-        "hero": {
-            "symbol": "BTC",
-            "price": base_price,
-            "change_24h": 0.0,
-            "market_cap": base_price * 19_700_000,
-            "volume_24h": 35_000_000_000,
-            "btc_dominance": 58.0,
-            "fear_greed_value": 50,
-            "fear_greed_label": "Neutral",
-            "fear_greed_updated_at": None,
-            "regime": f"Fallback data ({reason})",
-            "price_vs_200wma": 1.0,
-        },
-        "chart": {
-            "series": chart_series,
-            "min": min(point["price"] for point in chart_series),
-            "max": max(point["price"] for point in chart_series),
-        },
-        "cycle": {
-            "hero_metrics": [
-                {"label": "Price / 200WMA", "value": "1.00x", "hint": "Fallback", "state": "neutral"},
-                {"label": "90d Range Position", "value": "50.0%", "hint": "Fallback", "state": "neutral"},
-                {"label": "RSI(14)", "value": "50.0", "hint": "Fallback", "state": "neutral"},
-                {"label": "MACD Histogram", "value": "+0.00", "hint": "Fallback", "state": "neutral"},
-                {"label": "30d Momentum", "value": "+0.0%", "hint": "Fallback", "state": "neutral"},
-                {"label": "30d Volatility", "value": "0.0%", "hint": "Fallback", "state": "neutral"},
-            ],
-            "technical_cards": [
-                {"label": "MA7", "value": "$68,600", "hint": "Fallback", "state": "neutral"},
-                {"label": "MA50", "value": "$66,500", "hint": "Fallback", "state": "neutral"},
-                {"label": "MA200", "value": "$63,000", "hint": "Fallback", "state": "neutral"},
-                {"label": "MA1400", "value": "$57,400", "hint": "Fallback", "state": "neutral"},
-                {"label": "MACD", "value": "+0.00", "hint": "Fallback", "state": "neutral"},
-                {"label": "Cycle Bias", "value": "Above", "hint": "Fallback", "state": "neutral"},
-            ],
-            "level_rows": [
-                {"label": "Local Support", "price": 67500.0, "note": "Fallback", "side": "support"},
-                {"label": "200W Proxy", "price": 57400.0, "note": "Fallback", "side": "pivot"},
-                {"label": "200D MA", "price": 63000.0, "note": "Fallback", "side": "support"},
-                {"label": "50D MA", "price": 66500.0, "note": "Fallback", "side": "pivot"},
-                {"label": "Local Resistance", "price": 74000.0, "note": "Fallback", "side": "resistance"},
-            ],
-            "network_cards": [
-                {"label": "Hash Rate", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Difficulty", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Block Time", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Miners Revenue", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Tx Count", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Estimated Tx Volume", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Supply", "value": "—", "hint": "Fallback", "state": "neutral"},
-                {"label": "Halving", "value": "—", "hint": "Fallback", "state": "neutral"},
-            ],
-            "sentiment_cards": [
-                {"label": "Fear & Greed", "value": "50", "hint": "Neutral", "state": "neutral"},
-                {"label": "BTC Dominance", "value": "58.0%", "hint": "Fallback", "state": "neutral"},
-                {"label": "Crypto Market Cap", "value": "$2.50T", "hint": "Fallback", "state": "neutral"},
-                {"label": "Retarget", "value": "—", "hint": "Fallback", "state": "neutral"},
-            ],
-        },
-        "raw": {"reason": reason},
-        "sources": [
-            {"label": "CoinGecko", "url": "https://docs.coingecko.com/"},
-            {"label": "Blockchain.com", "url": "https://www.blockchain.com/en/api/charts_api"},
-            {"label": "mempool.space", "url": "https://mempool.space/"},
-            {"label": "Alternative.me", "url": "https://alternative.me/crypto/fear-and-greed-index/"},
-        ],
-    }
-
-
 def get_btc_dashboard() -> dict[str, Any]:
-    cached_ts = float(_CACHE.get("ts", 0.0) or 0.0)
-    cached_payload = _CACHE.get("payload")
-    if cached_payload and (time.time() - cached_ts) < CACHE_TTL_SECONDS:
-        return cached_payload
     return build_btc_dashboard()
