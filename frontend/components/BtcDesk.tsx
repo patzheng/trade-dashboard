@@ -54,6 +54,16 @@ type BtcApiResponse = {
     technical_cards: InsightMetric[];
     level_rows: KeyLevel[];
     network_cards: InsightMetric[];
+    onchain_cards: InsightMetric[];
+    derivatives_cards: InsightMetric[];
+    cycle_signal: {
+      label: string;
+      hint: string;
+      score: number;
+      state: string;
+      rsi14: number;
+      price_vs_200wma: number;
+    };
     sentiment_cards: InsightMetric[];
   };
   raw: {
@@ -62,6 +72,7 @@ type BtcApiResponse = {
     fear_greed?: {
       latest?: FearGreedEntry;
     };
+    bitview?: BitViewStats;
     global?: Record<string, unknown>;
   };
   sources: { label: string; url: string }[];
@@ -87,6 +98,33 @@ type FearGreedEntry = {
   timestamp?: string;
 };
 
+type BitViewStats = {
+  active_addresses?: number | null;
+  active_addresses_source?: string | null;
+  active_addresses_change_7d?: number | null;
+  active_addresses_change_30d?: number | null;
+  exchange_reserves?: number | null;
+  exchange_reserves_source?: string | null;
+  exchange_reserves_change_7d?: number | null;
+  exchange_reserves_change_30d?: number | null;
+  mvrv?: number | null;
+  mvrv_source?: string | null;
+  mvrv_change_7d?: number | null;
+  mvrv_change_30d?: number | null;
+  sopr?: number | null;
+  sopr_source?: string | null;
+  sopr_change_7d?: number | null;
+  sopr_change_30d?: number | null;
+  realized_cap?: number | null;
+  realized_cap_source?: string | null;
+  realized_cap_change_7d?: number | null;
+  realized_cap_change_30d?: number | null;
+  nupl?: number | null;
+  nupl_source?: string | null;
+  nupl_change_7d?: number | null;
+  nupl_change_30d?: number | null;
+};
+
 function formatPrice(value: number, digits = 0) {
   return `$${value.toLocaleString("en-US", {
     minimumFractionDigits: digits,
@@ -109,11 +147,29 @@ function formatCompact(value: number) {
   return formatPrice(value);
 }
 
+function formatCompactCount(value: number) {
+  const abs = Math.abs(value);
+  const sign = value >= 0 ? "" : "-";
+  if (abs >= 1_000_000_000_000) return `${sign}${(abs / 1_000_000_000_000).toFixed(2)}T`;
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(2)}B`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(2)}K`;
+  return `${sign}${abs.toLocaleString("en-US")}`;
+}
+
 function formatNumber(value: number, digits = 1) {
   return value.toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
+}
+
+function formatDelta(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return "n/a";
+  }
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${formatNumber(value, 1)}%`;
 }
 
 function formatTime(value: string) {
@@ -221,11 +277,14 @@ export default function BtcDesk() {
   const blockchain: BtcBlockchainStats = data?.raw.blockchain ?? {};
   const mempool: MempoolStats = data?.raw.mempool ?? {};
   const networkCards = data?.cycle.network_cards ?? [];
+  const cycleSignal = data?.cycle.cycle_signal;
+  const derivativesCards = data?.cycle.derivatives_cards ?? [];
   const heroMetrics = data?.cycle.hero_metrics ?? [];
   const technicalCards = data?.cycle.technical_cards ?? [];
   const sentimentCards = data?.cycle.sentiment_cards ?? [];
   const levels = data?.cycle.level_rows ?? [];
   const sources = data?.sources ?? [];
+  const bitview: BitViewStats = data?.raw.bitview ?? {};
 
   const latestPoint = series[series.length - 1];
   const earliestPoint = series[0];
@@ -240,6 +299,12 @@ export default function BtcDesk() {
   const blockTime = Number(blockchain.minutes_between_blocks ?? 0);
   const difficulty = Number(blockchain.difficulty ?? 0);
   const txVolume = Number(blockchain.estimated_transaction_volume_usd ?? 0);
+  const activeAddresses = typeof bitview.active_addresses === "number" ? bitview.active_addresses : null;
+  const exchangeReserves = typeof bitview.exchange_reserves === "number" ? bitview.exchange_reserves : null;
+  const mvrv = typeof bitview.mvrv === "number" ? bitview.mvrv : null;
+  const nupl = typeof bitview.nupl === "number" ? bitview.nupl : null;
+  const sopr = typeof bitview.sopr === "number" ? bitview.sopr : null;
+  const realizedCap = typeof bitview.realized_cap === "number" ? bitview.realized_cap : null;
 
   const chainRows = [
     {
@@ -261,6 +326,36 @@ export default function BtcDesk() {
       label: "Tx volume",
       value: formatCompact(txVolume),
       hint: "Estimated value settled on-chain",
+    },
+    {
+      label: "Active addresses",
+      value: activeAddresses != null ? formatCompactCount(activeAddresses) : "—",
+      hint: bitview.active_addresses_source || "Network participants",
+    },
+    {
+      label: "Exchange reserves",
+      value: exchangeReserves != null ? formatCompactCount(exchangeReserves) : "—",
+      hint: bitview.exchange_reserves_source || "Coins sitting on exchanges",
+    },
+    {
+      label: "MVRV",
+      value: mvrv != null ? `${formatNumber(mvrv, 2)}x` : "—",
+      hint: bitview.mvrv_source || "Network valuation multiple",
+    },
+    {
+      label: "NUPL",
+      value: nupl != null ? formatNumber(nupl, 2) : "—",
+      hint: bitview.nupl_source || "Profit / loss balance",
+    },
+    {
+      label: "SOPR",
+      value: sopr != null ? formatNumber(sopr, 2) : "—",
+      hint: bitview.sopr_source || "Spent output profit ratio",
+    },
+    {
+      label: "Realized cap",
+      value: realizedCap != null ? formatCompact(realizedCap) : "—",
+      hint: bitview.realized_cap_source || "Network cost basis",
     },
   ];
 
@@ -305,6 +400,79 @@ export default function BtcDesk() {
     },
     {
       label: "Bias",
+      value: data?.hero.regime ?? "—",
+      hint: "Structure summary",
+    },
+  ];
+
+  const valuationRows = [
+    {
+      label: "MVRV",
+      value: mvrv != null ? `${formatNumber(mvrv, 2)}x` : "—",
+      hint: `7d ${formatDelta(bitview.mvrv_change_7d)} · 30d ${formatDelta(bitview.mvrv_change_30d)}`,
+    },
+    {
+      label: "NUPL",
+      value: nupl != null ? formatNumber(nupl, 2) : "—",
+      hint: `7d ${formatDelta(bitview.nupl_change_7d)} · 30d ${formatDelta(bitview.nupl_change_30d)}`,
+    },
+    {
+      label: "SOPR",
+      value: sopr != null ? formatNumber(sopr, 2) : "—",
+      hint: `7d ${formatDelta(bitview.sopr_change_7d)} · 30d ${formatDelta(bitview.sopr_change_30d)}`,
+    },
+    {
+      label: "Realized cap",
+      value: realizedCap != null ? formatCompact(realizedCap) : "—",
+      hint: `7d ${formatDelta(bitview.realized_cap_change_7d)} · 30d ${formatDelta(bitview.realized_cap_change_30d)}`,
+    },
+  ];
+
+  const trendCards = [
+    {
+      label: "Active addresses",
+      value: activeAddresses != null ? formatCompactCount(activeAddresses) : "—",
+      hint: `7d ${formatDelta(bitview.active_addresses_change_7d)} · 30d ${formatDelta(bitview.active_addresses_change_30d)}`,
+    },
+    {
+      label: "Exchange reserves",
+      value: exchangeReserves != null ? formatCompactCount(exchangeReserves) : "—",
+      hint: `7d ${formatDelta(bitview.exchange_reserves_change_7d)} · 30d ${formatDelta(bitview.exchange_reserves_change_30d)}`,
+    },
+    {
+      label: "MVRV",
+      value: mvrv != null ? `${formatNumber(mvrv, 2)}x` : "—",
+      hint: `7d ${formatDelta(bitview.mvrv_change_7d)} · 30d ${formatDelta(bitview.mvrv_change_30d)}`,
+    },
+    {
+      label: "NUPL",
+      value: nupl != null ? formatNumber(nupl, 2) : "—",
+      hint: `7d ${formatDelta(bitview.nupl_change_7d)} · 30d ${formatDelta(bitview.nupl_change_30d)}`,
+    },
+  ];
+
+  const cycleProgress = cycleSignal
+    ? Math.max(0, Math.min(100, ((cycleSignal.score + 4) / 8) * 100))
+    : 50;
+
+  const priceRows = [
+    {
+      label: "Current price",
+      value: data ? formatPrice(data.hero.price) : "—",
+      hint: "Live BTC print",
+    },
+    {
+      label: "24h change",
+      value: formatChange(data?.hero.change_24h ?? 0),
+      hint: "Session momentum",
+    },
+    {
+      label: "Range",
+      value: data ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—",
+      hint: "Visible envelope",
+    },
+    {
+      label: "Trend bias",
       value: data?.hero.regime ?? "—",
       hint: "Structure summary",
     },
@@ -433,7 +601,7 @@ export default function BtcDesk() {
               )}
             </div>
 
-            <div className={styles.chartFooter}>
+          <div className={styles.chartFooter}>
               <div>
                 <span>Range</span>
                 <strong>{data ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—"}</strong>
@@ -451,6 +619,16 @@ export default function BtcDesk() {
                 <strong>{earliestPoint ? formatPrice(earliestPoint.price) : "—"}</strong>
               </div>
             </div>
+          </div>
+
+          <div className={styles.trendStrip}>
+            {trendCards.map((item) => (
+              <article key={item.label} className={styles.trendCard}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <em>{item.hint}</em>
+              </article>
+            ))}
           </div>
 
           <div className={styles.levelDeck}>
@@ -477,6 +655,46 @@ export default function BtcDesk() {
             </div>
             <div className={styles.metricGrid}>
               {networkCards.map((item) => (
+                <article key={item.label} className={styles.metricCard}>
+                  <span>{item.label}</span>
+                  <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
+                    {item.value}
+                  </strong>
+                  <em>{item.hint}</em>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h3>链上估值</h3>
+                <p>MVRV、NUPL、SOPR、Realized Cap。</p>
+              </div>
+            </div>
+            <div className={styles.metricGrid}>
+              {valuationRows.map((item) => (
+                <article key={item.label} className={styles.metricCard}>
+                  <span>{item.label}</span>
+                  <strong>
+                    {item.value}
+                  </strong>
+                  <em>{item.hint}</em>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h3>衍生品</h3>
+                <p>Funding、Open Interest、Mark Price。</p>
+              </div>
+            </div>
+            <div className={styles.metricGrid}>
+              {derivativesCards.map((item) => (
                 <article key={item.label} className={styles.metricCard}>
                   <span>{item.label}</span>
                   <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
@@ -542,6 +760,39 @@ export default function BtcDesk() {
         <article className={styles.deepPanel}>
           <div className={styles.panelHeader}>
             <div>
+              <h3>价格</h3>
+              <p>先看价格、区间和趋势偏向，再决定后面看哪一层。</p>
+            </div>
+            <span className={styles.panelTag}>Price</span>
+          </div>
+          <div className={styles.deepRows}>
+            {priceRows.map((item) => (
+              <div key={item.label} className={styles.deepRow}>
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{item.hint}</span>
+                </div>
+                <b className={item.label === "Trend bias" && data?.hero.regime?.includes("Trend") ? styles.good : ""}>
+                  {item.value}
+                </b>
+              </div>
+            ))}
+          </div>
+          <div className={styles.structureFoot}>
+            {heroMetrics.slice(0, 3).map((item) => (
+              <div key={item.label}>
+                <span>{item.label}</span>
+                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
+                  {item.value}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className={styles.deepPanel}>
+          <div className={styles.panelHeader}>
+            <div>
               <h3>链上</h3>
               <p>看供给、算力和结算压力，判断链本身有没有发热。</p>
             </div>
@@ -563,7 +814,7 @@ export default function BtcDesk() {
         <article className={styles.deepPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <h3>资金流</h3>
+              <h3>资金</h3>
               <p>看人群温度、dominance 和 mempool fee，判断钱往哪边挤。</p>
             </div>
             <span className={styles.panelTag}>Flow</span>
@@ -584,10 +835,39 @@ export default function BtcDesk() {
         <article className={styles.deepPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <h3>结构</h3>
-              <p>把价格、均线和周期位置放到一起看，先分辨趋势还是震荡。</p>
+              <h3>周期</h3>
+              <p>把均线、估值和周期位置放到一起看，分辨趋势还是震荡。</p>
             </div>
-            <span className={styles.panelTag}>Structure</span>
+            <span className={styles.panelTag}>Cycle</span>
+          </div>
+          <div className={styles.cycleSignal}>
+            <div>
+              <span>Cycle signal</span>
+              <strong className={cycleSignal?.state === "bullish" ? styles.good : cycleSignal?.state === "bearish" ? styles.bad : ""}>
+                {cycleSignal?.label ?? "—"}
+              </strong>
+            </div>
+            <p>{cycleSignal?.hint ?? "Waiting for live cycle data"}</p>
+            <small>
+              RSI {cycleSignal ? formatNumber(cycleSignal.rsi14, 1) : "—"} · Price / 200WMA{" "}
+              {cycleSignal ? formatNumber(cycleSignal.price_vs_200wma, 2) : "—"}x · Score {cycleSignal?.score ?? "—"}
+            </small>
+            <div className={styles.cycleBar}>
+              <div className={styles.cycleBarScale}>
+                <span>Low</span>
+                <span>Neutral</span>
+                <span>High</span>
+              </div>
+              <div className={styles.cycleBarTrack} aria-hidden="true">
+                <div className={styles.cycleBarFill} style={{ width: `${cycleProgress}%` }} />
+                <div className={styles.cycleBarMarker} style={{ left: `${cycleProgress}%` }} />
+              </div>
+            </div>
+            <div className={styles.cycleLegend}>
+              <span className={styles.cycleLegendLow}>Low</span>
+              <span className={styles.cycleLegendMid}>Neutral</span>
+              <span className={styles.cycleLegendHigh}>High</span>
+            </div>
           </div>
           <div className={styles.deepRows}>
             {structureRows.map((item) => (
@@ -603,12 +883,10 @@ export default function BtcDesk() {
             ))}
           </div>
           <div className={styles.structureFoot}>
-            {heroMetrics.slice(0, 3).map((item) => (
+            {valuationRows.slice(0, 3).map((item) => (
               <div key={item.label}>
                 <span>{item.label}</span>
-                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
-                  {item.value}
-                </strong>
+                <strong>{item.value}</strong>
               </div>
             ))}
           </div>

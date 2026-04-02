@@ -68,7 +68,7 @@
 
 .header {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   padding: 10px 0 22px;
@@ -310,7 +310,7 @@
 .chartLegend {
   display: flex;
   flex-wrap: wrap;
-  justify-content: end;
+  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -432,6 +432,44 @@
   font-size: 14px;
 }
 
+.trendStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 20px 18px;
+}
+
+.trendCard {
+  padding: 16px 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(89, 213, 255, 0.12);
+  background: linear-gradient(180deg, rgba(89, 213, 255, 0.05), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.trendCard span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.trendCard strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 19px;
+}
+
+.trendCard em {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  font-style: normal;
+}
+
 .levelDeck {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -480,7 +518,7 @@
 
 .panelHeader {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
@@ -544,7 +582,7 @@
 
 .deepGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
   margin-top: 18px;
 }
@@ -579,9 +617,125 @@
   gap: 10px;
 }
 
+.cycleSignal {
+  margin-bottom: 12px;
+  padding: 16px 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(89, 213, 255, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(89, 213, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(89, 213, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+
+.cycleSignal span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cycleSignal strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 20px;
+}
+
+.cycleSignal p {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.cycleSignal small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cycleLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cycleLegend span {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 173, 201, 0.12);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cycleLegendLow {
+  background: rgba(79, 225, 157, 0.12);
+  color: #9ff0cb;
+}
+
+.cycleLegendMid {
+  background: rgba(89, 213, 255, 0.1);
+  color: #bfefff;
+}
+
+.cycleLegendHigh {
+  background: rgba(255, 111, 125, 0.12);
+  color: #ffc8cf;
+}
+
+.cycleBar {
+  margin-top: 14px;
+}
+
+.cycleBarScale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cycleBarTrack {
+  position: relative;
+  height: 14px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(79, 225, 157, 0.18) 0%, rgba(89, 213, 255, 0.18) 50%, rgba(255, 111, 125, 0.18) 100%);
+  border: 1px solid rgba(141, 173, 201, 0.16);
+  overflow: hidden;
+}
+
+.cycleBarFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(79, 225, 157, 0.85), rgba(89, 213, 255, 0.75), rgba(255, 111, 125, 0.75));
+}
+
+.cycleBarMarker {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(7, 12, 19, 0.9);
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+}
+
 .deepRow {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
   padding: 14px 14px 16px;
@@ -664,7 +818,7 @@
 .sourceList {
   display: flex;
   flex-wrap: wrap;
-  justify-content: end;
+  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -714,11 +868,11 @@
   }
 
   .deepGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .header {
-    align-items: start;
+    align-items: flex-start;
     flex-direction: column;
   }
 
@@ -731,8 +885,10 @@
   .heroMetricGrid,
   .facts,
   .chartFooter,
+  .trendStrip,
   .levelDeck,
-  .structureFoot {
+  .structureFoot,
+  .deepGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -750,14 +906,14 @@
   .chartHeader,
   .footer {
     flex-direction: column;
-    align-items: start;
+    align-items: flex-start;
   }
 
   .headerMeta,
   .sourceList,
   .chartLegend {
     width: 100%;
-    justify-content: start;
+    justify-content: flex-start;
     flex-wrap: wrap;
   }
 
@@ -766,8 +922,10 @@
   .heroMetricGrid,
   .facts,
   .chartFooter,
+  .trendStrip,
   .levelDeck,
-  .structureFoot {
+  .structureFoot,
+  .deepGrid {
     grid-template-columns: 1fr;
   }
 

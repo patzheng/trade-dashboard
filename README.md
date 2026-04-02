@@ -64,7 +64,7 @@ docker compose up --build -d
 
 5. 域名解析到服务器公网 IP 后，访问 80 端口即可。
 6. 首页会直接展示 BTC 的实时价格主图、链上指标和技术面。
-7. 实时数据来自 CoinGecko、Blockchain.com、mempool.space 和 Alternative.me，后端带有缓存和失败回退。
+7. 实时数据来自 BitView、CoinGecko、Blockchain.com、mempool.space 和 Alternative.me，后端带有缓存和失败回退。
 
 ## 一键更新
 
