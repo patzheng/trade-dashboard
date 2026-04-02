@@ -99,14 +99,10 @@ type FearGreedEntry = {
 };
 
 type BitViewStats = {
-  active_addresses?: number | null;
-  active_addresses_source?: string | null;
-  active_addresses_change_7d?: number | null;
-  active_addresses_change_30d?: number | null;
-  exchange_reserves?: number | null;
-  exchange_reserves_source?: string | null;
-  exchange_reserves_change_7d?: number | null;
-  exchange_reserves_change_30d?: number | null;
+  addr_count?: number | null;
+  addr_count_source?: string | null;
+  addr_count_change_7d?: number | null;
+  addr_count_change_30d?: number | null;
   mvrv?: number | null;
   mvrv_source?: string | null;
   mvrv_change_7d?: number | null;
@@ -243,12 +239,7 @@ export default function BtcDesk() {
   const sources = data?.sources ?? [];
   const bitview: BitViewStats = data?.raw.bitview ?? {};
 
-  const hashRateEh = typeof blockchain.hash_rate === "number" ? blockchain.hash_rate / 1_000_000_000_000_000_000 : null;
-  const blockTime = typeof blockchain.minutes_between_blocks === "number" ? blockchain.minutes_between_blocks : null;
-  const difficulty = typeof blockchain.difficulty === "number" ? blockchain.difficulty : null;
-  const txVolume = typeof blockchain.estimated_transaction_volume_usd === "number" ? blockchain.estimated_transaction_volume_usd : null;
-  const activeAddresses = typeof bitview.active_addresses === "number" ? bitview.active_addresses : null;
-  const exchangeReserves = typeof bitview.exchange_reserves === "number" ? bitview.exchange_reserves : null;
+  const addrCount = typeof bitview.addr_count === "number" ? bitview.addr_count : null;
   const mvrv = typeof bitview.mvrv === "number" ? bitview.mvrv : null;
   const nupl = typeof bitview.nupl === "number" ? bitview.nupl : null;
   const sopr = typeof bitview.sopr === "number" ? bitview.sopr : null;
@@ -256,34 +247,9 @@ export default function BtcDesk() {
 
   const chainRows = [
     {
-      label: "Hash rate",
-      value: hashRateEh != null ? `${formatNumber(hashRateEh, 0)} EH/s` : "—",
-      hint: "Network work rate",
-    },
-    {
-      label: "Difficulty",
-      value: formatOptionalNumber(difficulty, 0),
-      hint: "Next retarget balances the chain",
-    },
-    {
-      label: "Block time",
-      value: blockTime != null ? `${formatNumber(blockTime, 1)} min` : "—",
-      hint: "Faster blocks usually mean fuller mempool",
-    },
-    {
-      label: "Tx volume",
-      value: formatOptionalCompact(txVolume),
-      hint: "Estimated value settled on-chain",
-    },
-    {
-      label: "Active addresses",
-      value: activeAddresses != null ? formatCompactCount(activeAddresses) : "—",
-      hint: bitview.active_addresses_source || "Network participants",
-    },
-    {
-      label: "Exchange reserves",
-      value: exchangeReserves != null ? formatCompactCount(exchangeReserves) : "—",
-      hint: bitview.exchange_reserves_source || "Coins sitting on exchanges",
+      label: "Addr count",
+      value: addrCount != null ? formatCompactCount(addrCount) : "—",
+      hint: bitview.addr_count_source || "Network participants",
     },
     {
       label: "MVRV",
@@ -296,7 +262,7 @@ export default function BtcDesk() {
       hint: bitview.nupl_source || "Profit / loss balance",
     },
     {
-      label: "SOPR",
+      label: "SOPR 1W",
       value: sopr != null ? formatNumber(sopr, 2) : "—",
       hint: bitview.sopr_source || "Spent output profit ratio",
     },
@@ -306,37 +272,6 @@ export default function BtcDesk() {
       hint: bitview.realized_cap_source || "Network cost basis",
     },
   ];
-
-  const valuationRows = [
-    {
-      label: "MVRV",
-      value: mvrv != null ? `${formatNumber(mvrv, 2)}x` : "—",
-      hint: `7d ${formatDelta(bitview.mvrv_change_7d)} · 30d ${formatDelta(bitview.mvrv_change_30d)}`,
-    },
-    {
-      label: "NUPL",
-      value: nupl != null ? formatNumber(nupl, 2) : "—",
-      hint: `7d ${formatDelta(bitview.nupl_change_7d)} · 30d ${formatDelta(bitview.nupl_change_30d)}`,
-    },
-    {
-      label: "SOPR",
-      value: sopr != null ? formatNumber(sopr, 2) : "—",
-      hint: `7d ${formatDelta(bitview.sopr_change_7d)} · 30d ${formatDelta(bitview.sopr_change_30d)}`,
-    },
-    {
-      label: "Realized cap",
-      value: realizedCap != null ? formatCompact(realizedCap) : "—",
-      hint: `7d ${formatDelta(bitview.realized_cap_change_7d)} · 30d ${formatDelta(bitview.realized_cap_change_30d)}`,
-    },
-  ];
-
-  const onChainMetrics = [
-    ...chainRows,
-    valuationRows[0],
-    valuationRows[1],
-    valuationRows[2],
-    valuationRows[3],
-  ].filter((item): item is InsightMetric => Boolean(item));
 
   return (
     <main className={styles.shell}>
@@ -369,15 +304,15 @@ export default function BtcDesk() {
             <div>
               <span className={styles.panelTag}>On-chain</span>
               <h3>链上</h3>
-              <p>供给、活跃度、估值集中放在一块，只看链上本身。</p>
+              <p>只看 BitView 已确认存在的链上 series，不再显示猜出来的字段。</p>
             </div>
             <div className={styles.sectionStatus}>
-              <strong>{onChainMetrics.filter((item) => item.value !== "—").length}</strong>
+              <strong>{chainRows.filter((item) => item.value !== "—").length}</strong>
               <span>live</span>
             </div>
           </div>
           <div className={styles.sectionGrid}>
-            {onChainMetrics.map((item) => (
+            {chainRows.map((item) => (
               <article key={item.label} className={styles.metricCard}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>

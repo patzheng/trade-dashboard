@@ -377,41 +377,24 @@ def bitview_block_metrics(count: int = 180) -> dict[str, Any]:
 
 
 def bitview_onchain_snapshot(market_cap: float | None = None) -> dict[str, Any]:
-    active_addresses, active_addresses_source = bitview_series_latest("active addresses")
-    active_addresses_history = bitview_series_history("active addresses")
-    exchange_reserves, exchange_reserves_source = bitview_series_latest("exchange reserves")
-    exchange_reserves_history = bitview_series_history("exchange reserves")
+    addr_count, addr_count_source = bitview_series_latest("addr_count")
+    addr_count_history = bitview_series_history("addr_count")
     mvrv, mvrv_source = bitview_series_latest("mvrv")
     mvrv_history = bitview_series_history("mvrv")
-    sopr, sopr_source = bitview_series_latest("sopr")
-    sopr_history = bitview_series_history("sopr")
+    sopr, sopr_source = bitview_series_latest("sopr_1w")
+    sopr_history = bitview_series_history("sopr_1w")
     realized_cap, realized_cap_source = bitview_series_latest("realized_cap")
     realized_cap_history = bitview_series_history("realized_cap")
     nupl, nupl_source = bitview_series_latest("nupl")
     nupl_history = bitview_series_history("nupl")
 
-    computed_nupl = None
-    computed_mvrv = None
-    if realized_cap and market_cap:
-        computed_mvrv = market_cap / realized_cap if realized_cap else None
-        computed_nupl = (market_cap - realized_cap) / market_cap if market_cap else None
-
-    latest_mvrv = mvrv if mvrv is not None else computed_mvrv
-    latest_nupl = nupl if nupl is not None else computed_nupl
-    latest_active_addresses = active_addresses
-    latest_exchange_reserves = exchange_reserves
-
     return {
-        "active_addresses": latest_active_addresses,
-        "active_addresses_source": active_addresses_source,
-        "active_addresses_change_7d": percent_change(active_addresses_history, 7),
-        "active_addresses_change_30d": percent_change(active_addresses_history, 30),
-        "exchange_reserves": latest_exchange_reserves,
-        "exchange_reserves_source": exchange_reserves_source,
-        "exchange_reserves_change_7d": percent_change(exchange_reserves_history, 7),
-        "exchange_reserves_change_30d": percent_change(exchange_reserves_history, 30),
-        "mvrv": latest_mvrv,
-        "mvrv_source": mvrv_source or ("computed" if computed_mvrv is not None else None),
+        "addr_count": addr_count,
+        "addr_count_source": addr_count_source,
+        "addr_count_change_7d": percent_change(addr_count_history, 7),
+        "addr_count_change_30d": percent_change(addr_count_history, 30),
+        "mvrv": mvrv,
+        "mvrv_source": mvrv_source,
         "mvrv_change_7d": percent_change(mvrv_history, 7),
         "mvrv_change_30d": percent_change(mvrv_history, 30),
         "sopr": sopr,
@@ -422,11 +405,10 @@ def bitview_onchain_snapshot(market_cap: float | None = None) -> dict[str, Any]:
         "realized_cap_source": realized_cap_source,
         "realized_cap_change_7d": percent_change(realized_cap_history, 7),
         "realized_cap_change_30d": percent_change(realized_cap_history, 30),
-        "nupl": latest_nupl,
-        "nupl_source": nupl_source or ("computed" if computed_nupl is not None else None),
+        "nupl": nupl,
+        "nupl_source": nupl_source,
         "nupl_change_7d": percent_change(nupl_history, 7),
         "nupl_change_30d": percent_change(nupl_history, 30),
-        "has_realized_cap": realized_cap is not None,
     }
 
 
