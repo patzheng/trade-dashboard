@@ -315,8 +315,6 @@ export default function BtcDesk() {
   const mempool: MempoolStats = data?.raw.mempool ?? {};
   const cycleSignal = data?.cycle.cycle_signal;
   const derivativesCards = data?.cycle.derivatives_cards ?? [];
-  const heroMetrics = data?.cycle.hero_metrics ?? [];
-  const technicalCards = data?.cycle.technical_cards ?? [];
   const sources = data?.sources ?? [];
   const bitview: BitViewStats = data?.raw.bitview ?? {};
 
@@ -467,9 +465,49 @@ export default function BtcDesk() {
     ? Math.max(0, Math.min(100, ((cycleSignal.score + 4) / 8) * 100))
     : 50;
 
-  const onChainMetrics: InsightMetric[] = [...chainRows.slice(0, 6), ...valuationRows];
-  const flowMetrics: InsightMetric[] = [...flowRows, ...derivativesCards];
-  const cycleMetrics: InsightMetric[] = [...structureRows, ...heroMetrics.slice(0, 3), ...technicalCards.slice(0, 3)];
+  const priceMetrics: InsightMetric[] = [
+    {
+      label: "Current price",
+      value: formatOptionalPrice(data?.hero.price),
+      hint: "Live BTC print",
+    },
+    {
+      label: "24h change",
+      value: formatOptionalChange(data?.hero.change_24h),
+      hint: "Session momentum",
+    },
+    {
+      label: "Market cap",
+      value: formatOptionalCompact(data?.hero.market_cap),
+      hint: "Implied network size",
+    },
+    {
+      label: "200WMA ratio",
+      value: data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—",
+      hint: "Cycle location",
+    },
+  ];
+
+  const onChainMetrics = [
+    chainRows[0],
+    chainRows[4],
+    chainRows[5],
+    valuationRows[0],
+  ].filter((item): item is InsightMetric => Boolean(item));
+
+  const flowMetrics = [
+    flowRows[0],
+    flowRows[1],
+    derivativesCards[0],
+    derivativesCards[1],
+  ].filter((item): item is InsightMetric => Boolean(item));
+
+  const cycleMetrics = [
+    structureRows[0],
+    structureRows[1],
+    valuationRows[1],
+    valuationRows[2],
+  ].filter((item): item is InsightMetric => Boolean(item));
 
   return (
     <main className={styles.shell}>
@@ -567,24 +605,17 @@ export default function BtcDesk() {
                 <div className={styles.emptyState}>{state.loading ? "Loading live BTC data..." : "No live BTC data."}</div>
               )}
             </div>
-            <div className={styles.chartFooter}>
-              <div>
-                <span>Range</span>
-                <strong>{data && data.chart.min != null && data.chart.max != null ? `${formatPrice(data.chart.min)} → ${formatPrice(data.chart.max)}` : "—"}</strong>
-              </div>
-              <div>
-                <span>Window</span>
-                <strong>{visibleSeries.length ? `${visibleSeries.length} points · ${currentRangeLabel}` : "—"}</strong>
-              </div>
-              <div>
-                <span>Price span</span>
-                <strong>{priceRange != null ? formatCompact(priceRange) : "—"}</strong>
-              </div>
-              <div>
-                <span>200WMA ratio</span>
-                <strong>{data?.hero.price_vs_200wma != null ? `${formatNumber(data.hero.price_vs_200wma, 2)}x` : "—"}</strong>
-              </div>
-            </div>
+          </div>
+          <div className={styles.sectionGrid}>
+            {priceMetrics.map((item) => (
+              <article key={item.label} className={styles.metricCard}>
+                <span>{item.label}</span>
+                <strong className={item.state === "bullish" ? styles.good : item.state === "bearish" ? styles.bad : ""}>
+                  {item.value}
+                </strong>
+                <em>{item.hint}</em>
+              </article>
+            ))}
           </div>
         </article>
 
@@ -625,14 +656,6 @@ export default function BtcDesk() {
                 <em>{item.hint}</em>
               </article>
             ))}
-            <article className={styles.metricCard}>
-              <span>Mempool fee</span>
-              <strong>{mempoolFast != null ? `${mempoolFast} sat/vB` : "—"}</strong>
-              <em>
-                {mempoolHalf != null ? `30m ${mempoolHalf} · ` : ""}
-                {mempoolHour != null ? `1h ${mempoolHour}` : "fee ladder"}
-              </em>
-            </article>
           </div>
         </article>
 
