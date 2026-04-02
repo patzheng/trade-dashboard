@@ -7,7 +7,7 @@ from math import sqrt
 from statistics import mean
 from typing import Any, Callable, TypeVar
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 BTC_ID = "bitcoin"
@@ -159,12 +159,13 @@ def bitview_series_latest(series_query: str, index: str = "day1") -> tuple[float
     candidates.extend(bitview_series_candidates(series_query))
     tried: set[tuple[str, str]] = set()
     for candidate in candidates:
+        encoded_candidate = quote(candidate, safe="")
         for resolution in (index, "day1", "week1", "month1"):
             key = (candidate, resolution)
             if key in tried:
                 continue
             tried.add(key)
-            url = f"{BITVIEW_BASE_URL.rstrip('/')}/series/{candidate}/{resolution}/latest"
+            url = f"{BITVIEW_BASE_URL.rstrip('/')}/series/{encoded_candidate}/{resolution}/latest"
             try:
                 payload = fetch_payload(url)
             except (HTTPError, URLError, TimeoutError, ValueError, OSError):
@@ -181,12 +182,13 @@ def bitview_series_history(series_query: str, index: str = "day1", count: int = 
     tried: set[tuple[str, str]] = set()
     params = urlencode({"format": "json", "count": count})
     for candidate in candidates:
+        encoded_candidate = quote(candidate, safe="")
         for resolution in (index, "day1", "week1", "month1"):
             key = (candidate, resolution)
             if key in tried:
                 continue
             tried.add(key)
-            url = f"{BITVIEW_BASE_URL.rstrip('/')}/series/{candidate}/{resolution}?{params}"
+            url = f"{BITVIEW_BASE_URL.rstrip('/')}/series/{encoded_candidate}/{resolution}?{params}"
             try:
                 payload = fetch_payload(url)
             except (HTTPError, URLError, TimeoutError, ValueError, OSError):
@@ -732,7 +734,7 @@ def build_btc_dashboard() -> dict[str, Any]:
     miners_revenue_usd = float(blockchain_legacy.get("miners_revenue_usd", 0) or 0)
     n_tx = int(bitview_blocks.get("tx_count", blockchain_legacy.get("n_tx", 0)) or 0)
     estimated_tx_volume = float(bitview_blocks.get("size", blockchain_legacy.get("estimated_transaction_volume_usd", 0)) or 0)
-    bitview_onchain = bitview_onchain_snapshot(market_cap=market_cap) if market_cap is not None else bitview_onchain_snapshot(market_cap=None)
+    bitview_onchain = safe_call(lambda: bitview_onchain_snapshot(market_cap=market_cap), {}) if market_cap is not None else safe_call(lambda: bitview_onchain_snapshot(market_cap=None), {})
 
     prices = [float(point["price"]) for point in history] if history else []
     rsi14 = calculate_rsi(prices) if prices else None
