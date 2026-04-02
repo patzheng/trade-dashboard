@@ -242,8 +242,6 @@ export default function BtcDesk() {
   const addrCount = typeof bitview.addr_count === "number" ? bitview.addr_count : null;
   const mvrv = typeof bitview.mvrv === "number" ? bitview.mvrv : null;
   const nupl = typeof bitview.nupl === "number" ? bitview.nupl : null;
-  const sopr = typeof bitview.sopr === "number" ? bitview.sopr : null;
-  const realizedCap = typeof bitview.realized_cap === "number" ? bitview.realized_cap : null;
 
   const chainRows = [
     {
@@ -260,16 +258,6 @@ export default function BtcDesk() {
       label: "NUPL",
       value: nupl != null ? formatNumber(nupl, 2) : "—",
       hint: bitview.nupl_source || "Profit / loss balance",
-    },
-    {
-      label: "SOPR 1W",
-      value: sopr != null ? formatNumber(sopr, 2) : "—",
-      hint: bitview.sopr_source || "Spent output profit ratio",
-    },
-    {
-      label: "Realized cap",
-      value: realizedCap != null ? formatCompact(realizedCap) : "—",
-      hint: bitview.realized_cap_source || "Network cost basis",
     },
   ];
 
@@ -304,7 +292,7 @@ export default function BtcDesk() {
             <div>
               <span className={styles.panelTag}>On-chain</span>
               <h3>链上</h3>
-              <p>只看 BitView 已确认存在的链上 series，不再显示猜出来的字段。</p>
+              <p>只看 BitView 已确认存在的核心 series：活动、估值、情绪。</p>
             </div>
             <div className={styles.sectionStatus}>
               <strong>{chainRows.filter((item) => item.value !== "—").length}</strong>
